@@ -1,1160 +1,333 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tower Block - Telegram Game</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Blocks Game</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         body {
-            overflow: hidden;
-            background: var(--tg-theme-bg-color, #121212);
-            color: var(--tg-theme-text-color, #fff);
-            touch-action: none;
-            position: relative;
-        }
-
-        #gameCanvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-            background: linear-gradient(to bottom, #1e3c72, #2a5298);
-        }
-
-        .screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 20px;
-            background: var(--tg-theme-bg-color, #121212);
-            z-index: 10;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(20px);
-            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .screen.active {
-            opacity: 1;
-            pointer-events: all;
-            transform: translateY(0);
-        }
-
-        .title {
-            font-size: 48px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-            color: var(--tg-theme-text-color, #fff);
-            transform: scale(0.9);
-            opacity: 0;
-            animation: titlePop 0.8s 0.2s forwards;
-        }
-
-        @keyframes titlePop {
-            to {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
-        .subtitle {
-            font-size: 18px;
-            opacity: 0.8;
-            margin-bottom: 40px;
-            transform: translateY(10px);
-            opacity: 0;
-            animation: subtitleSlide 0.6s 0.4s forwards;
-        }
-
-        @keyframes subtitleSlide {
-            to {
-                transform: translateY(0);
-                opacity: 0.8;
-            }
-        }
-
-        .btn {
-            padding: 15px 40px;
-            margin: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 50px;
-            background: var(--tg-theme-button-color, #ff3366);
-            color: var(--tg-theme-button-text-color, #fff);
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            min-width: 200px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transform: translateY(0);
-            position: relative;
+            min-height: 100vh;
             overflow: hidden;
         }
 
-        .btn::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .btn:hover::after,
-        .btn:active::after {
-            left: 100%;
-        }
-
-        .btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .btn-secondary {
-            background: var(--tg-theme-secondary-bg-color, #2c2c2e);
-        }
-
-        .stats {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-            padding: 12px 24px;
-            border-radius: 50px;
-            font-size: 24px;
-            font-weight: bold;
-            z-index: 5;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateX(-50%) translateY(-10px);
-        }
-
-        .stats.visible {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .coin {
-            color: #FFD700;
-            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
-        }
-
-        .shop-container, .leaderboard-container {
-            width: 100%;
-            max-width: 500px;
-            overflow-y: auto;
-            max-height: 70vh;
-            padding: 10px;
-            margin-top: 20px;
-        }
-
-        .shop-item {
-            background: var(--tg-theme-secondary-bg-color, #2c2c2e);
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            cursor: pointer;
-            transform: translateY(0);
-        }
-
-        .shop-item:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-
-        .shop-item.owned {
-            opacity: 0.7;
-        }
-
-        .shop-item.selected {
-            border: 3px solid var(--tg-theme-button-color, #ff3366);
-            box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.3);
-            transform: translateY(-5px) scale(1.02);
-        }
-
-        .item-info {
-            flex: 1;
-        }
-
-        .item-name {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: var(--tg-theme-text-color, #fff);
-        }
-
-        .item-desc {
-            font-size: 14px;
-            opacity: 0.7;
-        }
-
-        .item-price {
-            font-size: 22px;
-            font-weight: bold;
-            color: #FFD700;
-            background: rgba(255, 215, 0, 0.1);
-            padding: 10px 15px;
-            border-radius: 50px;
-            display: inline-block;
-        }
-
-        .leaderboard-item {
-            background: var(--tg-theme-secondary-bg-color, #2c2c2e);
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .leaderboard-item.current-player {
-            border: 3px solid var(--tg-theme-button-color, #ff3366);
-            box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.3);
-            transform: scale(1.03);
-        }
-
-        .rank {
-            font-size: 28px;
-            font-weight: bold;
-            width: 50px;
+        .game-container {
             text-align: center;
+            position: relative;
         }
 
-        .player-info {
-            flex: 1;
-            margin-left: 20px;
-            font-size: 18px;
+        h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .score-board {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
         }
 
         .score {
-            font-size: 24px;
+            color: white;
+            font-size: 1.5rem;
             font-weight: bold;
-            color: #FFD700;
-            background: rgba(255, 215, 0, 0.1);
-            padding: 10px 20px;
-            border-radius: 50px;
         }
 
-        .game-over-panel {
+        #gameCanvas {
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: block;
+            margin: 0 auto;
+        }
+
+        .game-over {
+            display: none;
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            background: rgba(0,0,0,0.95);
+            transform: translate(-50%, -50%);
+            background: white;
             padding: 40px;
-            border-radius: 30px;
-            text-align: center;
-            display: none;
-            z-index: 15;
-            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            opacity: 0;
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 20px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.4);
+            z-index: 10;
         }
 
-        .game-over-panel.active {
+        .game-over.show {
             display: block;
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 1;
+            animation: popIn 0.3s ease-out;
         }
 
-        .final-score {
-            font-size: 64px;
-            font-weight: bold;
-            color: #FFD700;
-            margin: 20px 0;
-            text-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
-            animation: scorePulse 2s infinite;
-        }
-
-        @keyframes scorePulse {
-            0%, 100% { text-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
-            50% { text-shadow: 0 0 30px rgba(255, 215, 0, 1); }
-        }
-
-        .combo-indicator {
-            position: absolute;
-            top: 100px;
-            left: 50%;
-            transform: translateX(-50%) scale(0.5);
-            font-size: 40px;
-            font-weight: bold;
-            color: #FFD700;
-            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-            z-index: 5;
-            opacity: 0;
-            pointer-events: none;
-            animation: comboBounce 0.6s forwards;
-        }
-
-        @keyframes comboBounce {
-            0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
-            50% { transform: translateX(-50%) scale(1.2); opacity: 1; }
-            100% { transform: translateX(-50%) scale(1); opacity: 1; }
-        }
-
-        .combo-indicator.fade-out {
-            animation: comboFadeOut 0.6s forwards;
-        }
-
-        @keyframes comboFadeOut {
-            0% { transform: translateX(-50%) scale(1); opacity: 1; }
-            100% { transform: translateX(-50%) scale(0.8); opacity: 0; }
-        }
-
-        .balance {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-            padding: 12px 24px;
-            border-radius: 50px;
-            font-size: 20px;
-            font-weight: bold;
-            z-index: 5;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-
-        .balance.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .particle {
-            position: absolute;
-            pointer-events: none;
-            z-index: 100;
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        /* Animation for menu items */
-        .menu-item {
-            opacity: 0;
-            transform: translateY(20px);
-            animation: slideIn 0.6s forwards;
-        }
-
-        @keyframes slideIn {
-            to {
+        @keyframes popIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
-                transform: translateY(0);
             }
         }
 
-        /* Loading indicator */
-        .loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--tg-theme-bg-color, #121212);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 1;
-            transition: opacity 0.5s ease;
+        .game-over h2 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 15px;
         }
 
-        .loading.hidden {
-            opacity: 0;
-            pointer-events: none;
+        .game-over p {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 25px;
         }
 
-        .loader {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255, 255, 255, 0.1);
-            border-top: 5px solid var(--tg-theme-button-color, #ff3366);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .restart-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .restart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .restart-btn:active {
+            transform: translateY(0);
+        }
+
+        .instructions {
+            color: white;
+            margin-top: 20px;
+            font-size: 1rem;
+            opacity: 0.9;
         }
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div class="loading" id="loadingScreen">
-        <div class="loader"></div>
-    </div>
-
-    <!-- Game Canvas -->
-    <canvas id="gameCanvas"></canvas>
-    
-    <!-- UI Stats -->
-    <div class="stats" id="statsUI">
-        Score: <span id="scoreDisplay">0</span>
-    </div>
-    
-    <div class="balance" id="balanceUI">
-        <span class="coin">💰</span> <span id="balanceDisplay">0</span>
-    </div>
-
-    <!-- Combo Indicator -->
-    <div class="combo-indicator" id="comboIndicator"></div>
-
-    <!-- Main Menu Screen -->
-    <div class="screen active" id="mainMenu">
-        <div class="title">🧳 Tower Block</div>
-        <div class="subtitle">Построй самую высокую башню!</div>
-        <button class="btn menu-item" style="animation-delay: 0.2s;" onclick="startGame()">🎮 Играть</button>
-        <button class="btn btn-secondary menu-item" style="animation-delay: 0.4s;" onclick="showShop()">🛒 Магазин</button>
-        <button class="btn btn-secondary menu-item" style="animation-delay: 0.6s;" onclick="showLeaderboard()">🏆 Лидерборд</button>
-        <div style="margin-top: 30px; opacity: 0.7; animation: slideIn 0.6s 0.8s forwards; opacity: 0;">
-            Лучший счет: <span id="bestScoreDisplay">0</span><br>
-            <span class="coin">💰</span> Баланс: <span id="mainBalanceDisplay">0</span>
+    <div class="game-container">
+        <h1>🏗️ Tower Blocks</h1>
+        <div class="score-board">
+            <div class="score">Score: <span id="score">0</span></div>
         </div>
-    </div>
-
-    <!-- Shop Screen -->
-    <div class="screen" id="shopScreen">
-        <div class="title">🛒 Магазин</div>
-        <div class="subtitle">Купи новые скины для чемоданов</div>
-        <div class="shop-container" id="shopContainer"></div>
-        <button class="btn" onclick="showMainMenu()" style="margin-top: 20px;">← Назад</button>
-    </div>
-
-    <!-- Leaderboard Screen -->
-    <div class="screen" id="leaderboardScreen">
-        <div class="title">🏆 Лидерборд</div>
-        <div class="subtitle">Топ игроков</div>
-        <div class="leaderboard-container" id="leaderboardContainer"></div>
-        <button class="btn" onclick="showMainMenu()" style="margin-top: 20px;">← Назад</button>
-    </div>
-
-    <!-- Game Over Panel -->
-    <div class="game-over-panel" id="gameOverPanel">
-        <div style="font-size: 48px; margin-bottom: 20px; color: #ff3366;">💥 Game Over!</div>
-        <div style="font-size: 24px; margin-bottom: 10px;">Твой счет:</div>
-        <div class="final-score" id="finalScore">0</div>
-        <div style="margin: 20px 0; font-size: 20px;">
-            Заработано: <span class="coin">💰</span> <span id="earnedCoins">0</span>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div class="instructions">
+            <p>Click or Press SPACE to drop the block!</p>
         </div>
-        <button class="btn" onclick="restartGame()" style="margin: 10px;">🔄 Еще раз</button>
-        <button class="btn btn-secondary" onclick="showMainMenu()" style="margin: 10px;">← В меню</button>
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <p>Your Score: <span id="finalScore">0</span></p>
+            <button class="restart-btn" onclick="restartGame()">Play Again</button>
+        </div>
     </div>
 
     <script>
-        // Telegram WebApp Init
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.enableClosingConfirmation();
-
-        // Apply theme colors
-        document.documentElement.style.setProperty('--tg-theme-bg-color', tg.backgroundColor || '#121212');
-        document.documentElement.style.setProperty('--tg-theme-text-color', tg.textColor || '#ffffff');
-        document.documentElement.style.setProperty('--tg-theme-button-color', tg.buttonColor || '#ff3366');
-        document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.buttonTextColor || '#ffffff');
-        document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.secondaryBackgroundColor || '#2c2c2e');
-
-        // Canvas Setup
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const scoreElement = document.getElementById('score');
+        const finalScoreElement = document.getElementById('finalScore');
+        const gameOverElement = document.getElementById('gameOver');
 
-        // Particles array
-        let particles = [];
+        let score = 0;
+        let gameRunning = true;
+        let blocks = [];
+        let currentBlock = null;
+        let direction = 1;
+        let speed = 2;
+        let blockHeight = 30;
+        let baseWidth = 150;
 
-        // Game State with Spring Physics
-        let gameState = {
-            isPlaying: false,
-            score: 0,
-            combo: 0,
-            speed: 2,
-            blocks: [],
-            currentBlock: null,
-            balance: 0,
-            bestScore: 0,
-            ownedSkins: ['default'],
-            selectedSkin: 'default',
-            // Spring physics for smooth movement
-            targetSpeed: 2,
-            springFactor: 0.1,
-            damping: 0.9
-        };
-
-        // Skins Database with enhanced graphics
-        const skins = {
-            default: {
-                name: 'Обычный чемодан',
-                desc: 'Стандартный чемодан',
-                price: 0,
-                color: '#8B4513',
-                highlight: '#A0522D',
-                shadow: '#5C3317',
-                pointsMultiplier: 1,
-                speedModifier: 1.0
-            },
-            retro: {
-                name: 'Ретро-чемодан',
-                desc: 'Винтажный стиль',
-                price: 50,
-                color: '#D2691E',
-                highlight: '#DEB887',
-                shadow: '#8B4513',
-                pointsMultiplier: 1,
-                speedModifier: 0.9
-            },
-            gold: {
-                name: 'Золотой кейс',
-                desc: 'Дает x2 очков!',
-                price: 200,
-                color: '#FFD700',
-                highlight: '#FFEC8B',
-                shadow: '#B8860B',
-                pointsMultiplier: 2,
-                speedModifier: 1.0
-            },
-            gucci: {
-                name: 'Чемодан Gucci',
-                desc: 'Премиум стиль, x2 очков',
-                price: 500,
-                color: '#8B0000',
-                highlight: '#FF6347',
-                shadow: '#4B0000',
-                pointsMultiplier: 2,
-                speedModifier: 1.1
-            },
-            cyber: {
-                name: 'Киберпанк кейс',
-                desc: 'Неоновый стиль',
-                price: 300,
-                color: '#00FFFF',
-                highlight: '#00FF7F',
-                shadow: '#008B8B',
-                pointsMultiplier: 1.5,
-                speedModifier: 0.8
-            }
-        };
-
-        // Mock Leaderboard Data
-        const leaderboardData = [
-            { name: 'Игрок1', score: 156 },
-            { name: 'Игрок2', score: 134 },
-            { name: 'Игрок3', score: 98 },
-            { name: 'Игрок4', score: 87 },
-            { name: 'Игрок5', score: 72 }
-        ];
-
-        // Background zones with gradients
-        function getBackground(score) {
-            if (score < 20) {
-                return {
-                    gradient: ['#87CEEB', '#B0E0E6'],
-                    name: 'Аэропорт'
-                };
-            } else if (score < 50) {
-                return {
-                    gradient: ['#1e3c72', '#2a5298'],
-                    name: 'Небо'
-                };
-            } else if (score < 100) {
-                return {
-                    gradient: ['#0f0c29', '#302b63'],
-                    name: 'Стратосфера'
-                };
-            } else {
-                return {
-                    gradient: ['#000000', '#1a0033'],
-                    name: 'Космос'
-                };
-            }
-        }
-
-        // Block Class with enhanced graphics and physics
         class Block {
-            constructor(x, y, width, height) {
+            constructor(x, y, width, height, color) {
                 this.x = x;
                 this.y = y;
                 this.width = width;
                 this.height = height;
-                this.moving = true;
-                this.direction = 1;
-                this.velocity = 0;
-                this.targetX = x;
-                this.springFactor = 0.15;
-                this.damping = 0.95;
-                this.rotation = 0;
-                this.rotationVelocity = 0;
-                this.dropStarted = false;
-                this.dropY = 0;
-                this.dropVelocity = 0;
-                this.dropAcceleration = 0.8;
-                this.landed = false;
-                this.bounceCount = 0;
-                this.scale = 1;
-                this.scaleVelocity = 0;
-            }
-
-            update() {
-                if (this.moving && !this.dropStarted) {
-                    // Smooth spring-based movement instead of direct movement
-                    this.targetX += gameState.speed * this.direction;
-                    
-                    if (this.targetX <= 0 || this.targetX + this.width >= canvas.width) {
-                        this.direction *= -1;
-                    }
-                    
-                    // Spring physics for smooth movement
-                    this.velocity += (this.targetX - this.x) * this.springFactor;
-                    this.velocity *= this.damping;
-                    this.x += this.velocity;
-                }
-                
-                if (this.dropStarted && !this.landed) {
-                    // Drop animation with gravity
-                    this.dropVelocity += this.dropAcceleration;
-                    this.y += this.dropVelocity;
-                    
-                    // Check collision with previous block
-                    if (this.y >= this.dropY) {
-                        this.y = this.dropY;
-                        this.dropVelocity *= -0.6; // Bounce
-                        this.bounceCount++;
-                        
-                        if (Math.abs(this.dropVelocity) < 1 || this.bounceCount > 2) {
-                            this.landed = true;
-                            this.dropVelocity = 0;
-                            
-                            // Scale animation on landing
-                            this.scaleVelocity = -0.2;
-                        }
-                    }
-                }
-                
-                // Scale animation
-                if (this.scale !== 1 || this.scaleVelocity !== 0) {
-                    this.scale += this.scaleVelocity;
-                    this.scaleVelocity *= 0.9;
-                    
-                    if (Math.abs(this.scale - 1) < 0.01) {
-                        this.scale = 1;
-                        this.scaleVelocity = 0;
-                    }
-                }
-            }
-
-            draw() {
-                const skin = skins[gameState.selectedSkin];
-                
-                ctx.save();
-                ctx.translate(this.x + this.width/2, this.y + this.height/2);
-                ctx.rotate(this.rotation);
-                ctx.scale(this.scale, this.scale);
-                ctx.translate(-(this.x + this.width/2), -(this.y + this.height/2));
-                
-                // Shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                ctx.fillRect(this.x + 5, this.y + 5, this.width, this.height);
-                
-                // Main block with gradient
-                const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
-                gradient.addColorStop(0, skin.highlight);
-                gradient.addColorStop(0.5, skin.color);
-                gradient.addColorStop(1, skin.shadow);
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.roundRect(this.x, this.y, this.width, this.height, 10);
-                ctx.fill();
-                
-                // Border
-                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // Glossy effect
-                ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                ctx.beginPath();
-                ctx.roundRect(this.x + 5, this.y + 5, this.width - 10, this.height/3, 5);
-                ctx.fill();
-                
-                // Handle
-                ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                ctx.beginPath();
-                ctx.roundRect(this.x + this.width/2 - 15, this.y + 8, 30, 8, 4);
-                ctx.fill();
-                
-                // Handle details
-                ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                ctx.beginPath();
-                ctx.roundRect(this.x + this.width/2 - 12, this.y + 10, 24, 4, 2);
-                ctx.fill();
-                
-                ctx.restore();
-            }
-        }
-
-        // Particle System
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.size = Math.random() * 5 + 3;
-                this.speedX = Math.random() * 3 - 1.5;
-                this.speedY = Math.random() * -3 - 1;
-                this.gravity = 0.1;
                 this.color = color;
-                this.opacity = 1;
-                this.life = 60;
-                this.maxLife = 60;
             }
-            
-            update() {
-                this.speedY += this.gravity;
-                this.x += this.speedX;
-                this.y += this.speedY;
-                this.life--;
-                this.opacity = this.life / this.maxLife;
-            }
-            
+
             draw() {
-                ctx.globalAlpha = this.opacity;
                 ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
             }
         }
 
-        // Create explosion particles
-        function createParticles(x, y, count, color) {
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle(x, y, color));
-            }
+        function getRandomColor() {
+            const colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
+                '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
+                '#F8B739', '#52B788'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
         }
 
-        // Load Game Data
-        function loadGameData() {
-            const saved = localStorage.getItem('towerBlockGame');
-            if (saved) {
-                const data = JSON.parse(saved);
-                gameState.balance = data.balance || 0;
-                gameState.bestScore = data.bestScore || 0;
-                gameState.ownedSkins = data.ownedSkins || ['default'];
-                gameState.selectedSkin = data.selectedSkin || 'default';
-            }
-            updateUI();
-            
-            // Hide loading screen
-            setTimeout(() => {
-                document.getElementById('loadingScreen').classList.add('hidden');
-            }, 500);
-        }
-
-        // Save Game Data
-        function saveGameData() {
-            const data = {
-                balance: gameState.balance,
-                bestScore: gameState.bestScore,
-                ownedSkins: gameState.ownedSkins,
-                selectedSkin: gameState.selectedSkin
-            };
-            localStorage.setItem('towerBlockGame', JSON.stringify(data));
-        }
-
-        // Update UI
-        function updateUI() {
-            document.getElementById('bestScoreDisplay').textContent = gameState.bestScore;
-            document.getElementById('mainBalanceDisplay').textContent = gameState.balance;
-            document.getElementById('scoreDisplay').textContent = gameState.score;
-            document.getElementById('balanceDisplay').textContent = gameState.balance;
-            
-            // Show UI elements with animation
-            document.getElementById('statsUI').classList.add('visible');
-            document.getElementById('balanceUI').classList.add('visible');
-        }
-
-        // Screen Navigation with animations
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId).classList.add('active');
-        }
-
-        function showMainMenu() {
-            showScreen('mainMenu');
-            document.getElementById('gameOverPanel').classList.remove('active');
-            document.getElementById('statsUI').classList.remove('visible');
-            document.getElementById('balanceUI').classList.remove('visible');
-            gameState.isPlaying = false;
-            updateUI();
-        }
-
-        function showShop() {
-            showScreen('shopScreen');
-            renderShop();
-        }
-
-        function showLeaderboard() {
-            showScreen('leaderboardScreen');
-            renderLeaderboard();
-        }
-
-        // Render Shop
-        function renderShop() {
-            const container = document.getElementById('shopContainer');
-            container.innerHTML = '';
-            
-            Object.keys(skins).forEach(skinId => {
-                const skin = skins[skinId];
-                const owned = gameState.ownedSkins.includes(skinId);
-                const selected = gameState.selectedSkin === skinId;
-                
-                const item = document.createElement('div');
-                item.className = 'shop-item';
-                if (owned) item.classList.add('owned');
-                if (selected) item.classList.add('selected');
-                
-                item.innerHTML = `
-                    <div class="item-info">
-                        <div class="item-name">${skin.name}</div>
-                        <div class="item-desc">${skin.desc}</div>
-                    </div>
-                    <div>
-                        ${owned ? 
-                            (selected ? '<span style="color: #4CAF50; font-size: 18px;">✓ Выбран</span>' : 
-                             '<button class="btn" style="padding: 8px 20px; font-size: 16px;" onclick="selectSkin(\'' + skinId + '\')">Выбрать</button>') :
-                            '<div class="item-price">💰 ' + skin.price + '</div>'
-                        }
-                    </div>
-                `;
-                
-                if (!owned && skinId !== 'default') {
-                    item.onclick = () => buySkin(skinId);
-                }
-                
-                container.appendChild(item);
-            });
-        }
-
-        // Buy Skin
-        function buySkin(skinId) {
-            const skin = skins[skinId];
-            if (gameState.balance >= skin.price) {
-                gameState.balance -= skin.price;
-                if (!gameState.ownedSkins.includes(skinId)) {
-                    gameState.ownedSkins.push(skinId);
-                }
-                saveGameData();
-                renderShop();
-                updateUI();
-                tg.HapticFeedback.notificationOccurred('success');
-            } else {
-                tg.HapticFeedback.notificationOccurred('error');
-                alert('Недостаточно монет!');
-            }
-        }
-
-        // Select Skin
-        function selectSkin(skinId) {
-            gameState.selectedSkin = skinId;
-            saveGameData();
-            renderShop();
-            tg.HapticFeedback.impactOccurred('light');
-        }
-
-        // Render Leaderboard
-        function renderLeaderboard() {
-            const container = document.getElementById('leaderboardContainer');
-            container.innerHTML = '';
-            
-            // Get current player name from Telegram
-            const currentPlayerName = tg.initDataUnsafe?.user?.first_name || 'Ты';
-            
-            // Add current player to leaderboard
-            const allPlayers = [
-                ...leaderboardData,
-                { name: currentPlayerName, score: gameState.bestScore, current: true }
-            ].sort((a, b) => b.score - a.score).slice(0, 10);
-            
-            allPlayers.forEach((player, index) => {
-                const item = document.createElement('div');
-                item.className = 'leaderboard-item';
-                if (player.current) item.classList.add('current-player');
-                
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-                
-                item.innerHTML = `
-                    <div class="rank">${medal || (index + 1)}</div>
-                    <div class="player-info">
-                        <div>${player.name}</div>
-                    </div>
-                    <div class="score">${player.score}</div>
-                `;
-                
-                container.appendChild(item);
-            });
-        }
-
-        // Start Game
-        function startGame() {
-            gameState.isPlaying = true;
-            gameState.score = 0;
-            gameState.combo = 0;
-            gameState.speed = 2;
-            gameState.targetSpeed = 2;
-            gameState.blocks = [];
-            particles = [];
-            
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById('gameOverPanel').classList.remove('active');
-            document.getElementById('statsUI').classList.add('visible');
-            document.getElementById('balanceUI').classList.add('visible');
-            
-            // First block at bottom
-            const firstBlock = new Block(
-                canvas.width / 2 - 75,
-                canvas.height - 80,
-                150,
-                30
+        function init() {
+            // Base block
+            const baseBlock = new Block(
+                canvas.width / 2 - baseWidth / 2,
+                canvas.height - blockHeight,
+                baseWidth,
+                blockHeight,
+                getRandomColor()
             );
-            firstBlock.moving = false;
-            firstBlock.landed = true;
-            gameState.blocks.push(firstBlock);
-            
-            spawnNewBlock();
-            updateUI();
-            gameLoop();
+            blocks.push(baseBlock);
+
+            // First moving block
+            createNewBlock();
         }
 
-        // Spawn New Block
-        function spawnNewBlock() {
-            const lastBlock = gameState.blocks[gameState.blocks.length - 1];
-            const newBlock = new Block(
+        function createNewBlock() {
+            const lastBlock = blocks[blocks.length - 1];
+            currentBlock = new Block(
                 0,
-                lastBlock.y - 70,
+                lastBlock.y - blockHeight,
                 lastBlock.width,
-                30
+                blockHeight,
+                getRandomColor()
             );
-            gameState.currentBlock = newBlock;
-            gameState.blocks.push(newBlock);
         }
 
-        // Drop Block
+        function update() {
+            if (!gameRunning) return;
+
+            // Move current block
+            if (currentBlock) {
+                currentBlock.x += speed * direction;
+
+                // Bounce off walls
+                if (currentBlock.x <= 0 || currentBlock.x + currentBlock.width >= canvas.width) {
+                    direction *= -1;
+                }
+            }
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw all blocks
+            for (let block of blocks) {
+                block.draw();
+            }
+
+            // Draw current block
+            if (currentBlock) {
+                currentBlock.draw();
+            }
+        }
+
         function dropBlock() {
-            if (!gameState.isPlaying || !gameState.currentBlock || !gameState.currentBlock.moving) return;
-            
-            const currentBlock = gameState.currentBlock;
-            currentBlock.moving = false;
-            currentBlock.dropStarted = true;
-            currentBlock.dropY = currentBlock.y;
-            
-            // Find the previous block
-            const previousBlockIndex = gameState.blocks.indexOf(currentBlock) - 1;
-            const previousBlock = gameState.blocks[previousBlockIndex];
-            
+            if (!gameRunning || !currentBlock) return;
+
+            const lastBlock = blocks[blocks.length - 1];
+
             // Calculate overlap
-            const overlapLeft = Math.max(currentBlock.x, previousBlock.x);
-            const overlapRight = Math.min(currentBlock.x + currentBlock.width, previousBlock.x + previousBlock.width);
-            const overlapWidth = overlapRight - overlapLeft;
-            
-            // If miss - Game Over
+            const overlapStart = Math.max(currentBlock.x, lastBlock.x);
+            const overlapEnd = Math.min(
+                currentBlock.x + currentBlock.width,
+                lastBlock.x + lastBlock.width
+            );
+            const overlapWidth = overlapEnd - overlapStart;
+
             if (overlapWidth <= 0) {
-                gameOver();
+                // Game over - no overlap
+                endGame();
                 return;
             }
-            
-            // Calculate accuracy
-            const accuracy = Math.abs(currentBlock.x - previousBlock.x);
-            const isPerfect = accuracy < 5;
-            
-            // Perfect hit effects
-            if (isPerfect) {
-                gameState.combo++;
-                showCombo();
-                tg.HapticFeedback.impactOccurred('medium');
-                
-                // Create particles
-                const centerX = currentBlock.x + currentBlock.width / 2;
-                const centerY = currentBlock.y + currentBlock.height / 2;
-                const skin = skins[gameState.selectedSkin];
-                createParticles(centerX, centerY, 20, skin.highlight);
-                
-                // Expand block slightly every 3 perfect hits
-                if (gameState.combo % 3 === 0 && currentBlock.width < 200) {
-                    // Animate expansion
-                    const expandAmount = 10;
-                    currentBlock.scaleVelocity = 0.3;
-                    setTimeout(() => {
-                        currentBlock.width += expandAmount;
-                        currentBlock.x -= expandAmount / 2;
-                    }, 200);
-                }
-            } else {
-                // Cut the block
-                gameState.combo = 0;
-                hideCombo();
-                tg.HapticFeedback.impactOccurred('light');
-                
-                currentBlock.x = overlapLeft;
-                currentBlock.width = overlapWidth;
+
+            // Adjust current block to match overlap
+            currentBlock.x = overlapStart;
+            currentBlock.width = overlapWidth;
+
+            // Add to blocks array
+            blocks.push(currentBlock);
+
+            // Update score
+            score++;
+            scoreElement.textContent = score;
+
+            // Increase difficulty
+            if (score % 5 === 0) {
+                speed += 0.5;
             }
-            
-            // Increase speed gradually
-            gameState.targetSpeed += 0.1;
-            
-            // Score calculation
-            const skin = skins[gameState.selectedSkin];
-            const basePoints = 1;
-            const multiplier = skin.pointsMultiplier * (isPerfect ? 2 : 1);
-            const points = Math.floor(basePoints * multiplier);
-            gameState.score += points;
-            gameState.balance += points;
-            
-            updateUI();
-            
-            // Spawn next block after landing
-            const checkLanding = setInterval(() => {
-                if (currentBlock.landed) {
-                    clearInterval(checkLanding);
-                    setTimeout(() => {
-                        if (gameState.isPlaying) {
-                            spawnNewBlock();
-                        }
-                    }, 500);
+
+            // Scroll down if tower gets too high
+            if (blocks.length > 15) {
+                blocks.shift();
+                for (let block of blocks) {
+                    block.y += blockHeight;
                 }
-            }, 50);
-        }
-
-        // Show Combo
-        function showCombo() {
-            const comboEl = document.getElementById('comboIndicator');
-            comboEl.textContent = `🔥 PERFECT x${gameState.combo}`;
-            comboEl.classList.remove('fade-out');
-            
-            // Reset animation
-            comboEl.style.animation = 'none';
-            setTimeout(() => {
-                comboEl.style.animation = 'comboBounce 0.6s forwards';
-            }, 10);
-            
-            // Auto hide after delay
-            setTimeout(() => {
-                comboEl.classList.add('fade-out');
-            }, 2000);
-        }
-
-        function hideCombo() {
-            const comboEl = document.getElementById('comboIndicator');
-            comboEl.classList.add('fade-out');
-        }
-
-        // Game Over
-        function gameOver() {
-            gameState.isPlaying = false;
-            tg.HapticFeedback.notificationOccurred('error');
-            
-            if (gameState.score > gameState.bestScore) {
-                gameState.bestScore = gameState.score;
-                tg.HapticFeedback.notificationOccurred('success');
             }
-            
-            saveGameData();
-            
-            document.getElementById('finalScore').textContent = gameState.score;
-            document.getElementById('earnedCoins').textContent = gameState.score;
-            document.getElementById('gameOverPanel').classList.add('active');
+
+            // Create new block
+            createNewBlock();
         }
 
-        // Restart Game
+        function endGame() {
+            gameRunning = false;
+            finalScoreElement.textContent = score;
+            gameOverElement.classList.add('show');
+        }
+
         function restartGame() {
-            document.getElementById('gameOverPanel').classList.remove('active');
-            startGame();
+            // Reset variables
+            score = 0;
+            gameRunning = true;
+            blocks = [];
+            currentBlock = null;
+            direction = 1;
+            speed = 2;
+
+            // Reset UI
+            scoreElement.textContent = '0';
+            gameOverElement.classList.remove('show');
+
+            // Restart game
+            init();
         }
 
-        // Game Loop
         function gameLoop() {
-            if (!gameState.isPlaying) return;
-            
-            // Update physics
-            gameState.speed += (gameState.targetSpeed - gameState.speed) * 0.05;
-            
-            // Clear canvas with gradient background
-            const bgInfo = getBackground(gameState.score);
-            const bgColors = bgInfo.gradient;
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, bgColors[0]);
-            gradient.addColorStop(1, bgColors[1]);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw background zone name
-            ctx.fillStyle = 'rgba(255,255,255,0.3)';
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(bgInfo.name, canvas.width / 2, 50);
-            
-            // Update and draw particles
-            particles = particles.filter(p => p.life > 0);
-            particles.forEach(particle => {
-                particle.update();
-                particle.draw();
-            });
-            
-            // Update and draw blocks
-            gameState.blocks.forEach(block => {
-                block.update();
-                block.draw();
-            });
-            
+            update();
+            draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // Touch/Click Handler
+        // Event listeners
         canvas.addEventListener('click', dropBlock);
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            dropBlock();
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                dropBlock();
+            }
         });
 
-        // Window Resize
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-
-        // Initialize
-        loadGameData();
+        // Start game
+        init();
+        gameLoop();
     </script>
 </body>
 </html>
