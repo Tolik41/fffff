@@ -1,31 +1,173 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-	<title>Tower Blocks Game</title>
-
-	<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#3390ec">
+    <title>Tower Blocks - Telegram Game</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-	<div id="container">
-		<div id="game"></div>
-		<div id="score">0</div>
-		<div id="instructions">Кликните, чтобы разместить блок</div>
-		<div class="game-over">
-			<h2>Игра окончена</h2>
-			<p>Вы отлично справились, вы лучший.</p>
-			<p>Кликните, чтобы начать заново</p>
-		</div>
-		<div class="game-ready">
-			<div id="start-button">Начать</div>
-			<div></div>
-		</div>
-	</div>
+    <!-- Main Menu Screen -->
+    <div class="screen" id="menuScreen">
+        <div class="menu-container">
+            <div class="game-logo">
+                <div class="logo-icon">🏗️</div>
+                <h1>Tower Blocks</h1>
+                <p class="tagline">Stack blocks as high as you can!</p>
+            </div>
 
-	<script src="https://codepen.io/steveg3003/pen/zBVakw.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r83/three.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js"></script>
-	<script src="script.js"></script>
+            <div class="menu-buttons">
+                <button class="menu-btn play-btn" onclick="showScreen('gameScreen')">
+                    <span class="btn-icon">🎮</span>
+                    <span class="btn-text">Play Game</span>
+                </button>
+                
+                <button class="menu-btn" onclick="showScreen('leaderboardScreen')">
+                    <span class="btn-icon">🏆</span>
+                    <span class="btn-text">Leaderboard</span>
+                </button>
+                
+                <button class="menu-btn" onclick="showScreen('shopScreen')">
+                    <span class="btn-icon">🛍️</span>
+                    <span class="btn-text">Shop</span>
+                </button>
+            </div>
+
+            <div class="user-stats">
+                <div class="stat-item">
+                    <div class="stat-label">Best Score</div>
+                    <div class="stat-value" id="menuBestScore">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Coins</div>
+                    <div class="stat-value">💰 <span id="menuCoins">0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="screen hidden" id="gameScreen">
+        <div class="game-container">
+            <!-- Header -->
+            <div class="header">
+                <button class="back-btn" onclick="showScreen('menuScreen')">
+                    ← Back
+                </button>
+                <div class="score-display" id="score">0</div>
+                <div class="coins-display">
+                    💰 <span id="gameCoins">0</span>
+                </div>
+            </div>
+
+            <!-- Canvas -->
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <div class="instructions">
+                    Tap anywhere to drop the block!
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div class="game-over-overlay" id="gameOverOverlay">
+            <div class="game-over-modal">
+                <h2>🎮 Game Over!</h2>
+                <div class="final-score" id="finalScore">0</div>
+                <div class="coins-earned">
+                    +<span id="coinsEarned">0</span> 💰
+                </div>
+                <p>Great job building your tower!</p>
+                <div class="game-over-buttons">
+                    <button class="restart-btn" id="restartButton">
+                        🔄 Play Again
+                    </button>
+                    <button class="menu-return-btn" onclick="returnToMenu()">
+                        🏠 Main Menu
+                    </button>
+                </div>
+                <div class="best-score">
+                    🏆 Best: <span id="bestScore">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Screen -->
+    <div class="screen hidden" id="leaderboardScreen">
+        <div class="leaderboard-container">
+            <div class="screen-header">
+                <button class="back-btn" onclick="showScreen('menuScreen')">
+                    ← Back
+                </button>
+                <h2>🏆 Leaderboard</h2>
+                <div style="width: 60px;"></div>
+            </div>
+
+            <div class="leaderboard-tabs">
+                <button class="tab-btn active" onclick="switchTab('global')">Global</button>
+                <button class="tab-btn" onclick="switchTab('friends')">Friends</button>
+            </div>
+
+            <div class="leaderboard-list" id="leaderboardList">
+                <!-- Leaderboard items will be inserted here -->
+            </div>
+
+            <div class="your-rank">
+                <div class="rank-item">
+                    <div class="rank-position">#<span id="yourRank">-</span></div>
+                    <div class="rank-info">
+                        <div class="rank-name">You</div>
+                        <div class="rank-coins">💰 <span id="yourCoins">0</span></div>
+                    </div>
+                    <div class="rank-score" id="yourScore">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Screen -->
+    <div class="screen hidden" id="shopScreen">
+        <div class="shop-container">
+            <div class="screen-header">
+                <button class="back-btn" onclick="showScreen('menuScreen')">
+                    ← Back
+                </button>
+                <h2>🛍️ Shop</h2>
+                <div class="header-coins">
+                    💰 <span id="shopCoins">0</span>
+                </div>
+            </div>
+
+            <div class="shop-categories">
+                <button class="category-btn active" onclick="switchCategory('blocks')">
+                    Blocks
+                </button>
+                <button class="category-btn" onclick="switchCategory('backgrounds')">
+                    Backgrounds
+                </button>
+                <button class="category-btn" onclick="switchCategory('power-ups')">
+                    Power-ups
+                </button>
+            </div>
+
+            <div class="shop-items" id="shopItems">
+                <!-- Shop items will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
 </body>
 </html>
