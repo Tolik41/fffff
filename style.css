@@ -1,0 +1,125 @@
+@import url("https://fonts.googleapis.com/css?family=Comfortaa");
+
+/* Общие стили для документа */
+html,
+body {
+  margin: 0;
+  overflow: hidden; /* Отключаем прокрутку страницы */
+  height: 100%;
+  width: 100%;
+  position: relative;
+  font-family: "Comfortaa", cursive; /* Шрифт для всего документа */
+}
+
+#container {
+  width: 100%;
+  height: 100%; /* Контейнер занимает весь экран */
+}
+
+#container #score {
+  position: absolute;
+  top: 20px; /* Расположение счета в верхней части */
+  width: 100%;
+  text-align: center; /* Центрирование текста счета */
+  font-size: 10vh; /* Динамический размер шрифта для счета */
+  transition: transform 0.5s ease; /* Плавный переход для анимации */
+  color: #333344; /* Цвет текста счета */
+  transform: translatey(-200px) scale(1); /* Начальная позиция счета */
+}
+
+#container #game {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0; /* Игра занимает весь экран внутри контейнера */
+}
+
+#container .game-over {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 85%; /* Зона для экрана завершения игры */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Центрирование контента экрана завершения игры */
+}
+
+#container .game-over * {
+  transition: opacity 0.5s ease, transform 0.5s ease; /* Плавные переходы для элементов */
+  opacity: 0; /* Элементы скрыты по умолчанию */
+  transform: translatey(-50px); /* Начальное положение */
+  color: #333344; /* Цвет текста завершения игры */
+}
+
+#container .game-over h2 {
+  margin: 0;
+  padding: 0;
+  font-size: 40px; /* Размер заголовка завершения игры */
+}
+
+#container .game-ready {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%; /* Экран готовности игры занимает весь контейнер */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around; /* Распределение элементов по вертикали */
+}
+
+#container .game-ready #start-button {
+  transition: opacity 0.5s ease, transform 0.5s ease; /* Плавные переходы для кнопки */
+  opacity: 0; /* Скрыта по умолчанию */
+  transform: translatey(-50px); /* Начальное положение кнопки */
+  border: 3px solid #333344; /* Стиль границы кнопки */
+  padding: 10px 20px; /* Внутренние отступы кнопки */
+  background-color: transparent; /* Прозрачный фон кнопки */
+  color: #333344; /* Цвет текста кнопки */
+  font-size: 30px; /* Размер текста кнопки */
+}
+
+#container #instructions {
+  position: absolute;
+  width: 100%;
+  top: 16vh;
+  left: 0;
+  text-align: center; /* Центрирование текста инструкций */
+  transition: opacity 0.5s ease, transform 0.5s ease; /* Плавные переходы */
+  opacity: 0; /* Инструкции скрыты по умолчанию */
+}
+
+#container #instructions.hide {
+  opacity: 0 !important; /* Принудительное скрытие инструкций */
+}
+
+#container.playing #score,
+#container.resetting #score {
+  transform: translatey(0px) scale(1); /* Счет возвращается в исходное положение */
+}
+
+#container.playing #instructions {
+  opacity: 1; /* Инструкции отображаются */
+}
+
+#container.ready .game-ready #start-button {
+  opacity: 1; /* Кнопка старт видима */
+  transform: translatey(0); /* Кнопка в исходном положении */
+}
+
+#container.ended #score {
+  transform: translatey(6vh) scale(1.5); /* Увеличение счета при завершении игры */
+}
+
+#container.ended .game-over * {
+  opacity: 1; /* Элементы завершения игры видимы */
+  transform: translatey(0); /* Элементы в исходном положении */
+}
+
+#container.ended .game-over p {
+  transition-delay: 0.3s; /* Задержка перед отображением текста завершения игры */
+}
