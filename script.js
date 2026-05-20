@@ -1,422 +1,478 @@
-"use strict";
-console.clear();
+// ===== TELEGRAM INTEGRATION =====
+const tg = window.Telegram?.WebApp;
 
-// Класс Stage отвечает за создание и настройку сцены, камеры и освещения
-class Stage {
-    constructor() {
-        // Метод для рендеринга сцены
-        this.render = function () {
-            this.renderer.render(this.scene, this.camera);
-        };
-
-        // Добавление и удаление объектов на сцене
-        this.add = function (elem) {
-            this.scene.add(elem);
-        };
-        this.remove = function (elem) {
-            this.scene.remove(elem);
-        };
-
-        // HTML-контейнер для сцены
-        this.container = document.getElementById('game');
-
-        // Настройка WebGLRenderer: включение сглаживания и настройка фона
-        this.renderer = new THREE.WebGLRenderer({
-            antialias: true, // Сглаживание краев объектов
-            alpha: false    // Отключение прозрачности фона
-        });
-        this.renderer.setSize(window.innerWidth, window.innerHeight); // Установка размера
-        this.renderer.setClearColor('#D0CBC7', 1); // Цвет фона сцены
-        this.container.appendChild(this.renderer.domElement); // Добавление рендера в HTML
-
-        // Создание сцены
-        this.scene = new THREE.Scene();
-
-        // Настройка камеры ортографического типа
-        let aspect = window.innerWidth / window.innerHeight; // Пропорции экрана
-        let d = 20; // Размер видимой области камеры
-        this.camera = new THREE.OrthographicCamera(
-            -d * aspect, d * aspect, d, -d, -100, 1000
-        );
-        this.camera.position.set(2, 2, 2); // Позиция камеры
-        this.camera.lookAt(new THREE.Vector3(0, 0, 0)); // Направление взгляда камеры
-
-        // Добавление освещения
-        this.light = new THREE.DirectionalLight(0xffffff, 0.5); // Направленный свет
-        this.light.position.set(0, 499, 0); // Позиция источника света
-        this.scene.add(this.light); // Добавление света на сцену
-
-        this.softLight = new THREE.AmbientLight(0xffffff, 0.4); // Мягкий рассеянный свет
-        this.scene.add(this.softLight);
-
-        // Обработка изменения размеров окна
-        window.addEventListener('resize', () => this.onResize());
-        this.onResize();
-    }
-
-    // Метод для плавного изменения положения камеры
-    setCamera(y, speed = 0.3) {
-        TweenLite.to(this.camera.position, speed, { y: y + 4, ease: Power1.easeInOut });
-        TweenLite.to(this.camera.lookAt, speed, { y: y, ease: Power1.easeInOut });
-    }
-
-    // Метод для обработки изменения размеров окна
-    onResize() {
-        let viewSize = 30;
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.camera.left = window.innerWidth / -viewSize;
-        this.camera.right = window.innerWidth / viewSize;
-        this.camera.top = window.innerHeight / viewSize;
-        this.camera.bottom = window.innerHeight / -viewSize;
-        this.camera.updateProjectionMatrix();
+function initTelegram() {
+    if (tg) {
+        tg.ready();
+        tg.expand();
+        applyTelegramTheme();
+        setupBackButton();
     }
 }
 
-// Класс Block отвечает за создание и управление блоками в игре
+function applyTelegramTheme() {
+    if (tg && tg.themeParams) {
+        const root = document.documentElement;
+        const params = tg.themeParams;
+        
+        if (params.bg_color) root.style.setProperty('--tg-theme-bg-color', params.bg_color);
+        if (params.text_color) root.style.setProperty('--tg-theme-text-color', params.text_color);
+        if (params.hint_color) root.style.setProperty('--tg-theme-hint-color', params.hint_color);
+        if (params.button_color) root.style.setProperty('--tg-theme-button-color', params.button_color);
+        if (params.button_text_color) root.style.setProperty('--tg-theme-button-text-color', params.button_text_color);
+        if (params.secondary_bg_color) root.style.setProperty('--tg-theme-secondary-bg-color', params.secondary_bg_color);
+    }
+}
+
+function setupBackButton() {
+    if (tg) {
+        tg.BackButton.onClick(() => {
+            const currentScreen = document.querySelector('.screen:not(.hidden)');
+            if (currentScreen && currentScreen.id !== 'menuScreen') {
+                showScreen('menuScreen');
+            } else {
+                tg.close();
+            }
+        });
+    }
+}
+
+function hapticFeedback(type = 'light') {
+    if (tg && tg.HapticFeedback) {
+        if (type === 'success' || type === 'error' || type === 'warning') {
+            tg.HapticFeedback.notificationOccurred(type);
+        } else {
+            tg.HapticFeedback.impactOccurred(type);
+        }
+    }
+}
+
+// ===== SCREEN MANAGEMENT =====
+function showScreen(screenId) {
+    hapticFeedback('light');
+    
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.add('hidden');
+    });
+    
+    // Show selected screen
+    const targetScreen = document.getElementById(screenId);
+    if (targetScreen) {
+        targetScreen.classList.remove('hidden');
+    }
+    
+    // Show/hide Telegram back button
+    if (tg) {
+        if (screenId === 'menuScreen') {
+            tg.BackButton.hide();
+        } else {
+            tg.BackButton.show();
+        }
+    }
+    
+    // Load screen data
+    if (screenId === 'leaderboardScreen') {
+        loadLeaderboard();
+    } else if (screenId === 'shopScreen') {
+        loadShop();
+    } else if (screenId === 'gameScreen') {
+        startNewGame();
+    }
+}
+
+function returnToMenu() {
+    gameRunning = false;
+    document.getElementById('gameOverOverlay').classList.remove('show');
+    showScreen('menuScreen');
+    updateMenuStats();
+}
+
+// ===== GAME VARIABLES =====
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const canvasWrapper = document.getElementById('canvasWrapper');
+
+let score = 0;
+let coins = parseInt(localStorage.getItem('towerBlocksCoins') || '0');
+let bestScore = parseInt(localStorage.getItem('towerBlocksBestScore') || '0');
+let gameRunning = false;
+let blocks = [];
+let currentBlock = null;
+let direction = 1;
+let speed = 2;
+let blockHeight = 0;
+let baseWidth = 0;
+
+// ===== CANVAS SETUP =====
+function resizeCanvas() {
+    const container = document.querySelector('.canvas-wrapper');
+    if (!container) return;
+    const size = Math.min(container.clientWidth, window.innerHeight * 0.7);
+    canvas.width = size;
+    canvas.height = size * 1.5;
+}
+
+// ===== BLOCK CLASS =====
 class Block {
-    constructor(block) {
-        // Состояния блока
-        this.STATES = { ACTIVE: 'active', STOPPED: 'stopped', MISSED: 'missed' };
-        this.MOVE_AMOUNT = 12; // Расстояние, на которое блок может двигаться
-
-        // Размеры и положение блока
-        this.dimension = { width: 0, height: 0, depth: 0 };
-        this.position = { x: 0, y: 0, z: 0 };
-
-        // Ссылка на предыдущий блок
-        this.targetBlock = block;
-        this.index = (this.targetBlock ? this.targetBlock.index : 0) + 1; // Индекс текущего блока
-
-        // Определение рабочей плоскости и измерений
-        this.workingPlane = this.index % 2 ? 'x' : 'z';
-        this.workingDimension = this.index % 2 ? 'width' : 'depth';
-
-        // Установка размеров и положения на основе предыдущего блока или стандартных значений
-        this.dimension.width = this.targetBlock ? this.targetBlock.dimension.width : 10;
-        this.dimension.height = this.targetBlock ? this.targetBlock.dimension.height : 2;
-        this.dimension.depth = this.targetBlock ? this.targetBlock.dimension.depth : 10;
-
-        this.position.x = this.targetBlock ? this.targetBlock.position.x : 0;
-        this.position.y = this.dimension.height * this.index; // Высота текущего блока
-        this.position.z = this.targetBlock ? this.targetBlock.position.z : 0;
-
-        // Цвет блока
-        this.colorOffset = this.targetBlock ? this.targetBlock.colorOffset : Math.round(Math.random() * 100);
-        if (!this.targetBlock) {
-            this.color = 0x333344; // Базовый цвет первого блока
-        } else {
-            let offset = this.index + this.colorOffset;
-            let r = Math.sin(0.3 * offset) * 55 + 200;
-            let g = Math.sin(0.3 * offset + 2) * 55 + 200;
-            let b = Math.sin(0.3 * offset + 4) * 55 + 200;
-            this.color = new THREE.Color(r / 255, g / 255, b / 255); // Генерация цвета для остальных блоков
-        }
-
-        // Установка состояния
-        this.state = this.index > 1 ? this.STATES.ACTIVE : this.STATES.STOPPED;
-
-        // Направление движения и скорость
-        this.speed = -0.1 - (this.index * 0.005); // Скорость уменьшается с каждым блоком
-        this.speed = Math.max(this.speed, -4); // Ограничение скорости
-        this.direction = this.speed;
-
-        // Создание 3D-объекта блока
-        let geometry = new THREE.BoxGeometry(this.dimension.width, this.dimension.height, this.dimension.depth);
-        geometry.applyMatrix(new THREE.Matrix4().makeTranslation(
-            this.dimension.width / 2,
-            this.dimension.height / 2,
-            this.dimension.depth / 2
-        ));
-        this.material = new THREE.MeshToonMaterial({ color: this.color, shading: THREE.FlatShading });
-        this.mesh = new THREE.Mesh(geometry, this.material);
-
-        // Установка начального положения блока
-        this.mesh.position.set(this.position.x, this.position.y, this.position.z);
-        if (this.state == this.STATES.ACTIVE) {
-            this.position[this.workingPlane] = Math.random() > 0.5 ? -this.MOVE_AMOUNT : this.MOVE_AMOUNT;
-        }
+    constructor(x, y, width, height, color) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color = color;
     }
 
-    // Метод для изменения направления блока
-    reverseDirection() {
-        this.direction = this.direction > 0 ? this.speed : Math.abs(this.speed);
-    }
-
-    // Метод для размещения блока на сцене
-    place() {
-        this.state = this.STATES.STOPPED;
-        let overlap = this.targetBlock.dimension[this.workingDimension] -
-            Math.abs(this.position[this.workingPlane] - this.targetBlock.position[this.workingPlane]);
-
-        // Логика обрезки и размещения блока
-        let blocksToReturn = {
-            plane: this.workingPlane,
-            direction: this.direction
-        };
-
-        if (this.dimension[this.workingDimension] - overlap < 0.3) {
-            overlap = this.dimension[this.workingDimension];
-            blocksToReturn.bonus = true;
-            this.position.x = this.targetBlock.position.x;
-            this.position.z = this.targetBlock.position.z;
-            this.dimension.width = this.targetBlock.dimension.width;
-            this.dimension.depth = this.targetBlock.dimension.depth;
-        }
-
-        if (overlap > 0) {
-            let choppedDimensions = {
-                width: this.dimension.width,
-                height: this.dimension.height,
-                depth: this.dimension.depth
-            };
-            choppedDimensions[this.workingDimension] -= overlap;
-            this.dimension[this.workingDimension] = overlap;
-
-            let placedGeometry = new THREE.BoxGeometry(this.dimension.width, this.dimension.height, this.dimension.depth);
-            placedGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(
-                this.dimension.width / 2,
-                this.dimension.height / 2,
-                this.dimension.depth / 2
-            ));
-            let placedMesh = new THREE.Mesh(placedGeometry, this.material);
-
-            let choppedGeometry = new THREE.BoxGeometry(choppedDimensions.width, choppedDimensions.height, choppedDimensions.depth);
-            choppedGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(
-                choppedDimensions.width / 2,
-                choppedDimensions.height / 2,
-                choppedDimensions.depth / 2
-            ));
-            let choppedMesh = new THREE.Mesh(choppedGeometry, this.material);
-
-            let choppedPosition = {
-                x: this.position.x,
-                y: this.position.y,
-                z: this.position.z
-            };
-
-            if (this.position[this.workingPlane] < this.targetBlock.position[this.workingPlane]) {
-                this.position[this.workingPlane] = this.targetBlock.position[this.workingPlane];
-            } else {
-                choppedPosition[this.workingPlane] += overlap;
-            }
-
-            placedMesh.position.set(this.position.x, this.position.y, this.position.z);
-            choppedMesh.position.set(choppedPosition.x, choppedPosition.y, choppedPosition.z);
-
-            blocksToReturn.placed = placedMesh;
-            if (!blocksToReturn.bonus) blocksToReturn.chopped = choppedMesh;
-        } else {
-            this.state = this.STATES.MISSED;
-        }
-
-        this.dimension[this.workingDimension] = overlap;
-        return blocksToReturn;
-    }
-
-    // Метод для обновления положения блока на каждом кадре
-    tick() {
-        if (this.state == this.STATES.ACTIVE) {
-            let value = this.position[this.workingPlane];
-            if (value > this.MOVE_AMOUNT || value < -this.MOVE_AMOUNT) {
-                this.reverseDirection();
-            }
-            this.position[this.workingPlane] += this.direction;
-            this.mesh.position[this.workingPlane] = this.position[this.workingPlane];
-        }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        const gradient = ctx.createLinearGradient(
+            this.x, this.y,
+            this.x + this.width, this.y + this.height
+        );
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
     }
 }
 
-// Класс Game управляет всей логикой игры
-class Game {
-    constructor() {
-        this.STATES = {
-            'LOADING': 'loading',
-            'PLAYING': 'playing',
-            'READY': 'ready',
-            'ENDED': 'ended',
-            'RESETTING': 'resetting'
-        };
-        this.blocks = [];
-        this.state = this.STATES.LOADING;
+// ===== HELPER FUNCTIONS =====
+function getRandomColor() {
+    const colors = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
+        '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
+        '#F8B739', '#52B788', '#E74C3C', '#9B59B6'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
 
-        // Инициализация сцены
-        this.stage = new Stage();
+function updateCoinsDisplay() {
+    document.getElementById('gameCoins').textContent = coins;
+    document.getElementById('menuCoins').textContent = coins;
+    document.getElementById('shopCoins').textContent = coins;
+    document.getElementById('yourCoins').textContent = coins;
+    localStorage.setItem('towerBlocksCoins', coins.toString());
+}
 
-        // Элементы интерфейса
-        this.mainContainer = document.getElementById('container');
-        this.scoreContainer = document.getElementById('score');
-        this.startButton = document.getElementById('start-button');
-        this.instructions = document.getElementById('instructions');
+function updateMenuStats() {
+    document.getElementById('menuBestScore').textContent = bestScore;
+    document.getElementById('menuCoins').textContent = coins;
+}
 
-        this.scoreContainer.innerHTML = '0'; // Счет игры
+function startNewGame() {
+    resizeCanvas();
+    init();
+}
 
-        // Группы для управления блоками
-        this.newBlocks = new THREE.Group();
-        this.placedBlocks = new THREE.Group();
-        this.choppedBlocks = new THREE.Group();
+function init() {
+    blocks = [];
+    score = 0;
+    direction = 1;
+    speed = canvas.width * 0.005;
+    blockHeight = canvas.height * 0.04;
+    baseWidth = canvas.width * 0.4;
+    gameRunning = true;
 
-        this.stage.add(this.newBlocks);
-        this.stage.add(this.placedBlocks);
-        this.stage.add(this.choppedBlocks);
+    document.getElementById('score').textContent = '0';
+    updateCoinsDisplay();
 
-        this.addBlock(); // Добавление первого блока
-        this.tick(); // Запуск цикла игры
+    const baseBlock = new Block(
+        canvas.width / 2 - baseWidth / 2,
+        canvas.height - blockHeight,
+        baseWidth,
+        blockHeight,
+        getRandomColor()
+    );
+    blocks.push(baseBlock);
 
-        this.updateState(this.STATES.READY); // Установка начального состояния игры
+    createNewBlock();
+}
 
-        // События для управления игрой
-        document.addEventListener('keydown', e => {
-            if (e.keyCode == 32) this.onAction();
-        });
-        document.addEventListener('click', e => {
-            this.onAction();
-        });
-    }
+function createNewBlock() {
+    const lastBlock = blocks[blocks.length - 1];
+    currentBlock = new Block(
+        0,
+        lastBlock.y - blockHeight,
+        lastBlock.width,
+        blockHeight,
+        getRandomColor()
+    );
+}
 
-    // Обновление состояния игры
-    updateState(newState) {
-        for (let key in this.STATES) {
-            this.mainContainer.classList.remove(this.STATES[key]);
-        }
-        this.mainContainer.classList.add(newState);
-        this.state = newState;
-    }
+function update() {
+    if (!gameRunning || !currentBlock) return;
 
-    // Действия пользователя
-    onAction() {
-        switch (this.state) {
-            case this.STATES.READY:
-                this.startGame();
-                break;
-            case this.STATES.PLAYING:
-                this.placeBlock();
-                break;
-            case this.STATES.ENDED:
-                this.restartGame();
-                break;
-        }
-    }
+    currentBlock.x += speed * direction;
 
-    // Запуск игры
-    startGame() {
-        if (this.state != this.STATES.PLAYING) {
-            this.scoreContainer.innerHTML = '0';
-            this.updateState(this.STATES.PLAYING);
-            this.addBlock();
-        }
-    }
-
-    // Перезапуск игры
-    restartGame() {
-        this.updateState(this.STATES.RESETTING);
-
-        let oldBlocks = this.placedBlocks.children;
-        let removeSpeed = 0.2;
-        let delayAmount = 0.02;
-
-        for (let i = 0; i < oldBlocks.length; i++) {
-            TweenLite.to(oldBlocks[i].scale, removeSpeed, {
-                x: 0, y: 0, z: 0,
-                delay: (oldBlocks.length - i) * delayAmount,
-                ease: Power1.easeIn,
-                onComplete: () => this.placedBlocks.remove(oldBlocks[i])
-            });
-            TweenLite.to(oldBlocks[i].rotation, removeSpeed, {
-                y: 0.5,
-                delay: (oldBlocks.length - i) * delayAmount,
-                ease: Power1.easeIn
-            });
-        }
-
-        let cameraMoveSpeed = removeSpeed * 2 + (oldBlocks.length * delayAmount);
-        this.stage.setCamera(2, cameraMoveSpeed);
-
-        let countdown = { value: this.blocks.length - 1 };
-        TweenLite.to(countdown, cameraMoveSpeed, {
-            value: 0,
-            onUpdate: () => {
-                this.scoreContainer.innerHTML = String(Math.round(countdown.value));
-            }
-        });
-
-        this.blocks = this.blocks.slice(0, 1);
-
-        setTimeout(() => {
-            this.startGame();
-        }, cameraMoveSpeed * 1000);
-    }
-
-    // Размещение текущего блока
-    placeBlock() {
-        let currentBlock = this.blocks[this.blocks.length - 1];
-        let newBlocks = currentBlock.place();
-        this.newBlocks.remove(currentBlock.mesh);
-
-        if (newBlocks.placed) {
-            this.placedBlocks.add(newBlocks.placed);
-        }
-        if (newBlocks.chopped) {
-            this.choppedBlocks.add(newBlocks.chopped);
-
-            let positionParams = {
-                y: '-=30',
-                ease: Power1.easeIn,
-                onComplete: () => this.choppedBlocks.remove(newBlocks.chopped)
-            };
-
-            let rotateRandomness = 10;
-            let rotationParams = {
-                delay: 0.05,
-                x: newBlocks.plane == 'z' ? ((Math.random() * rotateRandomness) - (rotateRandomness / 2)) : 0.1,
-                z: newBlocks.plane == 'x' ? ((Math.random() * rotateRandomness) - (rotateRandomness / 2)) : 0.1,
-                y: Math.random() * 0.1,
-            };
-
-            if (newBlocks.chopped.position[newBlocks.plane] > newBlocks.placed.position[newBlocks.plane]) {
-                positionParams[newBlocks.plane] = '+=' + (40 * Math.abs(newBlocks.direction));
-            } else {
-                positionParams[newBlocks.plane] = '-=' + (40 * Math.abs(newBlocks.direction));
-            }
-
-            TweenLite.to(newBlocks.chopped.position, 1, positionParams);
-            TweenLite.to(newBlocks.chopped.rotation, 1, rotationParams);
-        }
-
-        this.addBlock();
-    }
-
-    // Добавление нового блока
-    addBlock() {
-        let lastBlock = this.blocks[this.blocks.length - 1];
-        if (lastBlock && lastBlock.state == lastBlock.STATES.MISSED) {
-            return this.endGame();
-        }
-
-        this.scoreContainer.innerHTML = String(this.blocks.length - 1);
-        let newKidOnTheBlock = new Block(lastBlock);
-        this.newBlocks.add(newKidOnTheBlock.mesh);
-        this.blocks.push(newKidOnTheBlock);
-        this.stage.setCamera(this.blocks.length * 2);
-
-        if (this.blocks.length >= 5) {
-            this.instructions.classList.add('hide');
-        }
-    }
-
-    // Завершение игры
-    endGame() {
-        this.updateState(this.STATES.ENDED);
-    }
-
-    // Цикл игры
-    tick() {
-        this.blocks[this.blocks.length - 1].tick();
-        this.stage.render();
-        requestAnimationFrame(() => {
-            this.tick();
-        });
+    if (currentBlock.x <= 0 || currentBlock.x + currentBlock.width >= canvas.width) {
+        direction *= -1;
     }
 }
 
-// Запуск игры
-let game = new Game();
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let block of blocks) {
+        block.draw();
+    }
+
+    if (currentBlock && gameRunning) {
+        currentBlock.draw();
+    }
+}
+
+function dropBlock() {
+    if (!gameRunning || !currentBlock) return;
+
+    hapticFeedback('light');
+
+    const lastBlock = blocks[blocks.length - 1];
+    const overlapStart = Math.max(currentBlock.x, lastBlock.x);
+    const overlapEnd = Math.min(
+        currentBlock.x + currentBlock.width,
+        lastBlock.x + lastBlock.width
+    );
+    const overlapWidth = overlapEnd - overlapStart;
+
+    if (overlapWidth <= 0) {
+        endGame();
+        return;
+    }
+
+    const accuracy = overlapWidth / currentBlock.width;
+    if (accuracy > 0.95) {
+        hapticFeedback('success');
+    }
+
+    currentBlock.x = overlapStart;
+    currentBlock.width = overlapWidth;
+    blocks.push(currentBlock);
+
+    score++;
+    document.getElementById('score').textContent = score;
+
+    if (score % 5 === 0) {
+        speed += canvas.width * 0.001;
+    }
+
+    if (blocks.length > 12) {
+        blocks.shift();
+        for (let block of blocks) {
+            block.y += blockHeight;
+        }
+    }
+
+    createNewBlock();
+}
+
+function endGame() {
+    gameRunning = false;
+    hapticFeedback('error');
+
+    const earnedCoins = Math.floor(score / 2);
+    coins += earnedCoins;
+    
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('coinsEarned').textContent = earnedCoins;
+    document.getElementById('bestScore').textContent = bestScore;
+
+    if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('towerBlocksBestScore', bestScore.toString());
+        hapticFeedback('success');
+    }
+
+    updateCoinsDisplay();
+    document.getElementById('gameOverOverlay').classList.add('show');
+}
+
+function restartGame() {
+    document.getElementById('gameOverOverlay').classList.remove('show');
+    hapticFeedback('medium');
+    init();
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// ===== LEADERBOARD =====
+let currentLeaderboardTab = 'global';
+
+function switchTab(tab) {
+    currentLeaderboardTab = tab;
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    loadLeaderboard();
+    hapticFeedback('light');
+}
+
+function loadLeaderboard() {
+    const leaderboardList = document.getElementById('leaderboardList');
+    leaderboardList.innerHTML = '';
+
+    // Mock data - replace with real API call
+    const mockData = [
+        { name: 'Player 1', score: 150, coins: 500 },
+        { name: 'Player 2', score: 120, coins: 400 },
+        { name: 'Player 3', score: 100, coins: 350 },
+        { name: 'Player 4', score: 85, coins: 280 },
+        { name: 'Player 5', score: 70, coins: 220 },
+        { name: 'Player 6', score: 65, coins: 200 },
+        { name: 'Player 7', score: 55, coins: 180 },
+        { name: 'Player 8', score: 45, coins: 150 },
+    ];
+
+    mockData.forEach((player, index) => {
+        const rankClass = index === 0 ? 'top-1' : index === 1 ? 'top-2' : index === 2 ? 'top-3' : '';
+        
+        const item = document.createElement('div');
+        item.className = 'rank-item';
+        item.innerHTML = `
+            <div class="rank-position ${rankClass}">#${index + 1}</div>
+            <div class="rank-info">
+                <div class="rank-name">${player.name}</div>
+                <div class="rank-coins">💰 ${player.coins}</div>
+            </div>
+            <div class="rank-score">${player.score}</div>
+        `;
+        leaderboardList.appendChild(item);
+    });
+
+    // Update your rank
+    document.getElementById('yourRank').textContent = '15';
+    document.getElementById('yourScore').textContent = bestScore;
+    updateCoinsDisplay();
+}
+
+// ===== SHOP =====
+let currentCategory = 'blocks';
+
+const shopData = {
+    blocks: [
+        { id: 1, name: 'Classic', icon: '🟦', price: 0, owned: true },
+        { id: 2, name: 'Rainbow', icon: '🌈', price: 100, owned: false },
+        { id: 3, name: 'Gold', icon: '🟨', price: 200, owned: false },
+        { id: 4, name: 'Diamond', icon: '💎', price: 500, owned: false },
+        { id: 5, name: 'Fire', icon: '🔥', price: 300, owned: false },
+        { id: 6, name: 'Ice', icon: '❄️', price: 300, owned: false },
+    ],
+    backgrounds: [
+        { id: 7, name: 'Sky', icon: '🌤️', price: 0, owned: true },
+        { id: 8, name: 'Sunset', icon: '🌅', price: 150, owned: false },
+        { id: 9, name: 'Night', icon: '🌃', price: 200, owned: false },
+        { id: 10, name: 'Space', icon: '🌌', price: 400, owned: false },
+    ],
+    'power-ups': [
+        { id: 11, name: 'Slow Motion', icon: '⏱️', price: 50, owned: false },
+        { id: 12, name: 'Wider Base', icon: '↔️', price: 100, owned: false },
+        { id: 13, name: 'Double Coins', icon: '💰', price: 200, owned: false },
+        { id: 14, name: 'Perfect Drop', icon: '🎯', price: 300, owned: false },
+    ]
+};
+
+function switchCategory(category) {
+    currentCategory = category;
+    
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    loadShop();
+    hapticFeedback('light');
+}
+
+function loadShop() {
+    const shopItems = document.getElementById('shopItems');
+    shopItems.innerHTML = '';
+    
+    updateCoinsDisplay();
+
+    const items = shopData[currentCategory] || [];
+    
+    items.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `shop-item ${item.owned ? 'owned' : ''}`;
+        itemDiv.onclick = () => buyItem(item);
+        
+        itemDiv.innerHTML = `
+            <div class="item-icon">${item.icon}</div>
+            <div class="item-name">${item.name}</div>
+            ${item.owned 
+                ? '<div class="item-owned">✓ Owned</div>' 
+                : `<div class="item-price">💰 ${item.price}</div>`
+            }
+        `;
+        
+        shopItems.appendChild(itemDiv);
+    });
+}
+
+function buyItem(item) {
+    if (item.owned) {
+        hapticFeedback('warning');
+        return;
+    }
+    
+    if (coins >= item.price) {
+        coins -= item.price;
+        item.owned = true;
+        
+        updateCoinsDisplay();
+        loadShop();
+        
+        hapticFeedback('success');
+        
+        // Save to localStorage
+        localStorage.setItem('towerBlocksCoins', coins.toString());
+        localStorage.setItem(`shopItem_${item.id}`, 'true');
+    } else {
+        hapticFeedback('error');
+        alert('Not enough coins! 💰');
+    }
+}
+
+// Load owned items from localStorage
+function loadOwnedItems() {
+    Object.values(shopData).flat().forEach(item => {
+        const owned = localStorage.getItem(`shopItem_${item.id}`);
+        if (owned === 'true') {
+            item.owned = true;
+        }
+    });
+}
+
+// ===== EVENT LISTENERS =====
+canvasWrapper.addEventListener('click', dropBlock);
+canvasWrapper.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    dropBlock();
+});
+
+document.getElementById('restartButton').addEventListener('click', restartGame);
+
+window.addEventListener('resize', () => {
+    if (gameRunning) {
+        resizeCanvas();
+    }
+});
+
+// ===== INITIALIZATION =====
+initTelegram();
+loadOwnedItems();
+updateMenuStats();
+updateCoinsDisplay();
+gameLoop();
