@@ -8,33 +8,13 @@ function initTelegram() {
     tg.ready();
     tg.expand();
 
-    applyTelegramTheme();
-    setupBackButton();
-}
-
-function applyTelegramTheme() {
-    if (!tg || !tg.themeParams) return;
-
-    const root = document.documentElement;
-    const params = tg.themeParams;
-
-    if (params.bg_color)
-        root.style.setProperty('--bg', params.bg_color);
-
-    if (params.text_color)
-        root.style.setProperty('--text', params.text_color);
-}
-
-function setupBackButton() {
-    if (!tg) return;
-
     tg.BackButton.onClick(() => {
-        const currentScreen =
+        const current =
             document.querySelector('.screen:not(.hidden)');
 
         if (
-            currentScreen &&
-            currentScreen.id !== 'menuScreen'
+            current &&
+            current.id !== 'menuScreen'
         ) {
             showScreen('menuScreen');
         } else {
@@ -43,13 +23,13 @@ function setupBackButton() {
     });
 }
 
-function hapticFeedback(type = 'light') {
+function haptic(type = 'light') {
+
     if (!tg || !tg.HapticFeedback) return;
 
     if (
         type === 'success' ||
-        type === 'error' ||
-        type === 'warning'
+        type === 'error'
     ) {
         tg.HapticFeedback.notificationOccurred(type);
     } else {
@@ -59,9 +39,9 @@ function hapticFeedback(type = 'light') {
 
 // ================= SCREEN SYSTEM =================
 
-function showScreen(screenId) {
+function showScreen(id) {
 
-    hapticFeedback('light');
+    haptic();
 
     document
         .querySelectorAll('.screen')
@@ -70,34 +50,34 @@ function showScreen(screenId) {
         });
 
     const target =
-        document.getElementById(screenId);
+        document.getElementById(id);
 
-    if (target) {
-        target.classList.remove('hidden');
-    }
+    target.classList.remove('hidden');
 
     if (tg) {
-        if (screenId === 'menuScreen') {
+
+        if (id === 'menuScreen') {
             tg.BackButton.hide();
         } else {
             tg.BackButton.show();
         }
     }
 
-    if (screenId === 'gameScreen') {
-        startNewGame();
+    if (id === 'gameScreen') {
+        startGame();
     }
 
-    if (screenId === 'leaderboardScreen') {
+    if (id === 'leaderboardScreen') {
         loadLeaderboard();
     }
 
-    if (screenId === 'shopScreen') {
+    if (id === 'shopScreen') {
         loadShop();
     }
 }
 
 function returnToMenu() {
+
     gameRunning = false;
 
     document
@@ -106,7 +86,7 @@ function returnToMenu() {
 
     showScreen('menuScreen');
 
-    updateMenuStats();
+    updateStats();
 }
 
 // ================= GAME VARIABLES =================
@@ -119,27 +99,35 @@ const ctx =
 
 let score = 0;
 
-let coins =
-    parseInt(
-        localStorage.getItem('towerBlocksCoins')
-    ) || 0;
-
 let bestScore =
     parseInt(
-        localStorage.getItem('towerBlocksBestScore')
+        localStorage.getItem('towerBest')
+    ) || 0;
+
+let coins =
+    parseInt(
+        localStorage.getItem('towerCoins')
     ) || 0;
 
 let gameRunning = false;
 
 let blocks = [];
+
 let currentBlock = null;
 
 let direction = 1;
 
 let speed = 2;
 
-let blockHeight = 0;
-let baseWidth = 0;
+let blockHeight = 34;
+
+let baseWidth = 180;
+
+let cameraOffset = 0;
+
+let combo = 0;
+
+let particles = [];
 
 // ================= CANVAS =================
 
@@ -148,16 +136,26 @@ function resizeCanvas() {
     const size =
         Math.min(
             window.innerWidth * 0.92,
-            window.innerHeight * 0.65
+            460
         );
 
     canvas.width = size;
-    canvas.height = size * 1.45;
+    canvas.height = size * 1.55;
 }
 
 resizeCanvas();
 
-// ================= BLOCK CLASS =================
+// ================= COLORS =================
+
+const blockPalettes = [
+    ['#7fd3ff', '#5ebeff'],
+    ['#ffd57e', '#ffb84d'],
+    ['#ff9db0', '#ff7290'],
+    ['#8effc1', '#55f59a'],
+    ['#d7b5ff', '#af7eff']
+];
+
+// ================= BLOCK =================
 
 class Block {
 
@@ -166,7 +164,7 @@ class Block {
         y,
         width,
         height,
-        color
+        palette
     ) {
 
         this.x = x;
@@ -175,34 +173,79 @@ class Block {
         this.width = width;
         this.height = height;
 
-        this.color = color;
+        this.palette = palette;
+
+        this.scale = 0;
+    }
+
+    update() {
+
+        this.scale +=
+            (1 - this.scale) * 0.18;
     }
 
     draw() {
+
+        this.update();
+
+        const centerX =
+            this.x + this.width / 2;
+
+        const centerY =
+            this.y + this.height / 2;
+
+        ctx.save();
+
+        ctx.translate(centerX, centerY);
+
+        ctx.scale(this.scale, this.scale);
+
+        ctx.translate(-centerX, -centerY);
+
+        // shadow
+
+        ctx.fillStyle =
+            'rgba(0,0,0,.08)';
+
+        ctx.beginPath();
+
+        roundRect(
+            ctx,
+            this.x + 4,
+            this.y + 6,
+            this.width,
+            this.height,
+            10
+        );
+
+        ctx.fill();
+
+        // main gradient
 
         const gradient =
             ctx.createLinearGradient(
                 this.x,
                 this.y,
-                this.x + this.width,
+                this.x,
                 this.y + this.height
             );
 
         gradient.addColorStop(
             0,
-            this.color
+            this.palette[0]
         );
 
         gradient.addColorStop(
             1,
-            '#ffffff22'
+            this.palette[1]
         );
 
         ctx.fillStyle = gradient;
 
         ctx.beginPath();
 
-        ctx.roundRect(
+        roundRect(
+            ctx,
             this.x,
             this.y,
             this.width,
@@ -212,79 +255,89 @@ class Block {
 
         ctx.fill();
 
-        ctx.strokeStyle =
-            'rgba(255,255,255,.15)';
-
-        ctx.lineWidth = 2;
-
-        ctx.stroke();
-
-        // glossy effect
+        // glossy top
 
         ctx.fillStyle =
-            'rgba(255,255,255,.12)';
+            'rgba(255,255,255,.18)';
 
         ctx.beginPath();
 
-        ctx.roundRect(
+        roundRect(
+            ctx,
             this.x + 4,
             this.y + 4,
             this.width - 8,
-            this.height / 3,
-            6
+            this.height / 2.5,
+            8
         );
 
         ctx.fill();
+
+        ctx.restore();
     }
 }
 
 // ================= HELPERS =================
 
-function getRandomColor() {
+function roundRect(
+    ctx,
+    x,
+    y,
+    width,
+    height,
+    radius
+) {
 
-    const colors = [
-        '#4ea1ff',
-        '#7c4dff',
-        '#ff6b81',
-        '#ffd166',
-        '#57ff8a',
-        '#00d4ff',
-        '#ff9f43'
-    ];
+    ctx.moveTo(x + radius, y);
 
-    return colors[
+    ctx.arcTo(
+        x + width,
+        y,
+        x + width,
+        y + height,
+        radius
+    );
+
+    ctx.arcTo(
+        x + width,
+        y + height,
+        x,
+        y + height,
+        radius
+    );
+
+    ctx.arcTo(
+        x,
+        y + height,
+        x,
+        y,
+        radius
+    );
+
+    ctx.arcTo(
+        x,
+        y,
+        x + width,
+        y,
+        radius
+    );
+
+    ctx.closePath();
+}
+
+function getPalette() {
+
+    return blockPalettes[
         Math.floor(
-            Math.random() * colors.length
+            Math.random() *
+            blockPalettes.length
         )
     ];
 }
 
-function updateCoinsDisplay() {
+// ================= UI =================
 
-    const ids = [
-        'gameCoins',
-        'menuCoins',
-        'shopCoins',
-        'yourCoins'
-    ];
-
-    ids.forEach(id => {
-
-        const el =
-            document.getElementById(id);
-
-        if (el) {
-            el.textContent = coins;
-        }
-    });
-
-    localStorage.setItem(
-        'towerBlocksCoins',
-        coins.toString()
-    );
-}
-
-function updateMenuStats() {
+function updateStats() {
 
     document.getElementById(
         'menuBestScore'
@@ -293,88 +346,111 @@ function updateMenuStats() {
     document.getElementById(
         'menuCoins'
     ).textContent = coins;
+
+    document.getElementById(
+        'gameCoins'
+    ).textContent = coins;
+
+    document.getElementById(
+        'shopCoins'
+    ).textContent = coins;
+
+    document.getElementById(
+        'yourCoins'
+    ).textContent = coins;
+
+    localStorage.setItem(
+        'towerCoins',
+        coins
+    );
 }
 
 // ================= GAME INIT =================
 
-function startNewGame() {
+function startGame() {
 
     resizeCanvas();
 
-    init();
-}
-
-function init() {
-
-    blocks = [];
-
     score = 0;
+
+    combo = 0;
 
     direction = 1;
 
-    speed =
-        canvas.width * 0.005;
+    speed = canvas.width * 0.006;
 
     blockHeight =
-        canvas.height * 0.04;
+        canvas.height * 0.045;
 
     baseWidth =
-        canvas.width * 0.4;
+        canvas.width * 0.42;
+
+    blocks = [];
+
+    cameraOffset = 0;
 
     gameRunning = true;
 
     document.getElementById(
         'score'
-    ).textContent = '0';
+    ).textContent = 0;
 
-    updateCoinsDisplay();
-
-    const baseBlock =
+    const base =
         new Block(
             canvas.width / 2 - baseWidth / 2,
-            canvas.height - blockHeight,
+            canvas.height - blockHeight - 40,
             baseWidth,
             blockHeight,
-            getRandomColor()
+            getPalette()
         );
 
-    blocks.push(baseBlock);
+    blocks.push(base);
 
-    createNewBlock();
+    createBlock();
 }
 
-function createNewBlock() {
+// ================= CREATE BLOCK =================
 
-    const lastBlock =
+function createBlock() {
+
+    const last =
         blocks[blocks.length - 1];
 
     currentBlock =
         new Block(
-            0,
-            lastBlock.y - blockHeight,
-            lastBlock.width,
+            -last.width,
+            last.y - blockHeight,
+            last.width,
             blockHeight,
-            getRandomColor()
+            getPalette()
         );
 
     canvas.animate(
         [
-            { transform: 'scale(1)' },
-            { transform: 'scale(1.01)' },
-            { transform: 'scale(1)' }
+            {
+                transform:'scale(1)'
+            },
+            {
+                transform:'scale(1.01)'
+            },
+            {
+                transform:'scale(1)'
+            }
         ],
         {
-            duration: 180
+            duration:180
         }
     );
 }
 
-// ================= GAME LOOP =================
+// ================= UPDATE =================
 
 function update() {
 
-    if (!gameRunning || !currentBlock)
-        return;
+    if (
+        !gameRunning ||
+        !currentBlock
+    ) return;
 
     currentBlock.x +=
         speed * direction;
@@ -387,16 +463,59 @@ function update() {
     ) {
         direction *= -1;
     }
+
+    // smooth camera
+
+    const targetOffset =
+        Math.max(
+            0,
+            blocks.length * blockHeight -
+            canvas.height * 0.55
+        );
+
+    cameraOffset +=
+        (targetOffset - cameraOffset) * 0.06;
 }
 
-function draw() {
+// ================= DRAW =================
 
-    ctx.clearRect(
+function drawBackground() {
+
+    const gradient =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            canvas.height
+        );
+
+    gradient.addColorStop(
+        0,
+        '#9be7ff'
+    );
+
+    gradient.addColorStop(
+        1,
+        '#f6fbff'
+    );
+
+    ctx.fillStyle = gradient;
+
+    ctx.fillRect(
         0,
         0,
         canvas.width,
         canvas.height
     );
+}
+
+function draw() {
+
+    drawBackground();
+
+    ctx.save();
+
+    ctx.translate(0, cameraOffset);
 
     blocks.forEach(block => {
         block.draw();
@@ -408,6 +527,10 @@ function draw() {
     ) {
         currentBlock.draw();
     }
+
+    ctx.restore();
+
+    drawParticles();
 }
 
 // ================= DROP =================
@@ -419,17 +542,15 @@ function dropBlock() {
         !currentBlock
     ) return;
 
-    hapticFeedback('light');
+    haptic();
 
-    spawnParticles();
-
-    const lastBlock =
+    const last =
         blocks[blocks.length - 1];
 
     const overlapStart =
         Math.max(
             currentBlock.x,
-            lastBlock.x
+            last.x
         );
 
     const overlapEnd =
@@ -437,15 +558,17 @@ function dropBlock() {
             currentBlock.x +
             currentBlock.width,
 
-            lastBlock.x +
-            lastBlock.width
+            last.x +
+            last.width
         );
 
     const overlapWidth =
         overlapEnd - overlapStart;
 
     if (overlapWidth <= 0) {
+
         endGame();
+
         return;
     }
 
@@ -453,9 +576,23 @@ function dropBlock() {
         overlapWidth /
         currentBlock.width;
 
-    if (accuracy > 0.95) {
-        hapticFeedback('success');
+    // PERFECT
+
+    if (accuracy > 0.96) {
+
+        combo++;
+
         perfectEffect();
+
+        spawnComboText(
+            combo
+        );
+
+        haptic('success');
+
+    } else {
+
+        combo = 0;
     }
 
     currentBlock.x =
@@ -468,27 +605,20 @@ function dropBlock() {
 
     score++;
 
-    const scoreEl =
-        document.getElementById('score');
+    animateScore();
 
-    scoreEl.textContent = score;
+    document.getElementById(
+        'score'
+    ).textContent = score;
 
-    scoreEl.classList.remove(
-        'score-pop'
-    );
+    // speed scaling
 
-    void scoreEl.offsetWidth;
+    speed +=
+        canvas.width * 0.00008;
 
-    scoreEl.classList.add(
-        'score-pop'
-    );
+    // recycle
 
-    if (score % 5 === 0) {
-        speed +=
-            canvas.width * 0.001;
-    }
-
-    if (blocks.length > 12) {
+    if (blocks.length > 18) {
 
         blocks.shift();
 
@@ -497,7 +627,146 @@ function dropBlock() {
         });
     }
 
-    createNewBlock();
+    spawnParticles(
+        currentBlock.x +
+        currentBlock.width / 2,
+
+        currentBlock.y
+    );
+
+    createBlock();
+}
+
+// ================= SCORE ANIMATION =================
+
+function animateScore() {
+
+    const scoreEl =
+        document.getElementById('score');
+
+    scoreEl.animate(
+        [
+            {
+                transform:'scale(1)'
+            },
+            {
+                transform:'scale(1.22)'
+            },
+            {
+                transform:'scale(1)'
+            }
+        ],
+        {
+            duration:180
+        }
+    );
+}
+
+// ================= PARTICLES =================
+
+function spawnParticles(x, y) {
+
+    for (let i = 0; i < 12; i++) {
+
+        particles.push({
+
+            x,
+            y,
+
+            vx:
+                (Math.random() - .5) * 5,
+
+            vy:
+                Math.random() * -4 - 1,
+
+            size:
+                Math.random() * 8 + 4,
+
+            alpha:1,
+
+            color:[
+                '#ffffff',
+                '#7fd3ff',
+                '#ffd57e',
+                '#ff9db0'
+            ][
+                Math.floor(
+                    Math.random() * 4
+                )
+            ]
+        });
+    }
+}
+
+function drawParticles() {
+
+    particles.forEach((p, index) => {
+
+        p.x += p.vx;
+
+        p.y += p.vy;
+
+        p.alpha -= 0.02;
+
+        p.size *= 0.98;
+
+        ctx.globalAlpha = p.alpha;
+
+        ctx.fillStyle = p.color;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            p.x,
+            p.y + cameraOffset,
+            p.size,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+        ctx.globalAlpha = 1;
+
+        if (p.alpha <= 0) {
+            particles.splice(index, 1);
+        }
+    });
+}
+
+// ================= PERFECT EFFECT =================
+
+function perfectEffect() {
+
+    canvas.classList.add(
+        'perfect-flash'
+    );
+
+    setTimeout(() => {
+
+        canvas.classList.remove(
+            'perfect-flash'
+        );
+
+    }, 350);
+}
+
+function spawnComboText(combo) {
+
+    const div =
+        document.createElement('div');
+
+    div.className =
+        'combo-text';
+
+    div.innerText =
+        `PERFECT x${combo}`;
+
+    document.body.appendChild(div);
+
+    setTimeout(() => {
+        div.remove();
+    }, 1000);
 }
 
 // ================= GAME OVER =================
@@ -506,12 +775,24 @@ function endGame() {
 
     gameRunning = false;
 
-    hapticFeedback('error');
+    haptic('error');
 
-    const earnedCoins =
+    const earned =
         Math.floor(score / 2);
 
-    coins += earnedCoins;
+    coins += earned;
+
+    if (score > bestScore) {
+
+        bestScore = score;
+
+        localStorage.setItem(
+            'towerBest',
+            bestScore
+        );
+    }
+
+    updateStats();
 
     document.getElementById(
         'finalScore'
@@ -519,25 +800,11 @@ function endGame() {
 
     document.getElementById(
         'coinsEarned'
-    ).textContent = earnedCoins;
-
-    if (score > bestScore) {
-
-        bestScore = score;
-
-        localStorage.setItem(
-            'towerBlocksBestScore',
-            bestScore.toString()
-        );
-
-        hapticFeedback('success');
-    }
+    ).textContent = earned;
 
     document.getElementById(
         'bestScore'
     ).textContent = bestScore;
-
-    updateCoinsDisplay();
 
     document
         .getElementById(
@@ -554,89 +821,15 @@ function restartGame() {
         )
         .classList.remove('show');
 
-    hapticFeedback('medium');
-
-    init();
-}
-
-// ================= LOOP =================
-
-function gameLoop() {
-
-    update();
-
-    draw();
-
-    requestAnimationFrame(
-        gameLoop
-    );
-}
-
-// ================= PARTICLES =================
-
-function spawnParticles() {
-
-    for (let i = 0; i < 10; i++) {
-
-        const p =
-            document.createElement('div');
-
-        p.className = 'particle';
-
-        p.style.left =
-            Math.random() *
-            window.innerWidth + 'px';
-
-        p.style.top =
-            (window.innerHeight - 120) + 'px';
-
-        const colors = [
-            '#4ea1ff',
-            '#ffd166',
-            '#ffffff',
-            '#57ff8a'
-        ];
-
-        p.style.background =
-            colors[
-                Math.floor(
-                    Math.random() *
-                    colors.length
-                )
-            ];
-
-        document.body.appendChild(p);
-
-        setTimeout(() => {
-            p.remove();
-        }, 800);
-    }
-}
-
-function perfectEffect() {
-
-    canvas.classList.add(
-        'perfect-flash'
-    );
-
-    setTimeout(() => {
-        canvas.classList.remove(
-            'perfect-flash'
-        );
-    }, 350);
+    startGame();
 }
 
 // ================= LEADERBOARD =================
 
-let currentLeaderboardTab =
-    'global';
-
 function switchTab(tab) {
 
-    currentLeaderboardTab = tab;
-
     document
-        .querySelectorAll('.tab-btn')
+        .querySelectorAll('.tab')
         .forEach(btn => {
             btn.classList.remove('active');
         });
@@ -646,8 +839,6 @@ function switchTab(tab) {
     );
 
     loadLeaderboard();
-
-    hapticFeedback('light');
 }
 
 function loadLeaderboard() {
@@ -659,137 +850,76 @@ function loadLeaderboard() {
 
     list.innerHTML = '';
 
-    const mockData = [
-        { name:'Alpha', score:250, coins:500 },
-        { name:'Nova', score:220, coins:430 },
-        { name:'Ghost', score:180, coins:400 },
-        { name:'Pixel', score:160, coins:310 },
-        { name:'Sky', score:130, coins:280 },
-        { name:'Zen', score:100, coins:240 }
+    const data = [
+
+        ['Oliver',245],
+        ['Emma',220],
+        ['Lucas',198],
+        ['Sophia',176],
+        ['Liam',150],
+        ['Mia',132],
+        ['Noah',120]
+
     ];
 
-    mockData.forEach(
-        (player, index) => {
+    data.forEach((player, index) => {
 
         const item =
             document.createElement('div');
 
         item.className =
-            'rank-item';
+            'leader-item';
 
         item.innerHTML = `
-            <div class="rank-position">
-                #${index + 1}
-            </div>
 
-            <div class="rank-info">
+            <div class="leader-left">
 
-                <div class="rank-name">
-                    ${player.name}
+                <div class="leader-rank">
+                    #${index + 1}
                 </div>
 
-                <div class="rank-coins">
-                    💰 ${player.coins}
+                <div class="leader-name">
+                    ${player[0]}
                 </div>
 
             </div>
 
-            <div class="rank-score">
-                ${player.score}
+            <div class="leader-score">
+                ${player[1]}
             </div>
+
         `;
 
         list.appendChild(item);
     });
 
     document.getElementById(
-        'yourRank'
-    ).textContent = 15;
-
-    document.getElementById(
         'yourScore'
     ).textContent = bestScore;
-
-    updateCoinsDisplay();
 }
 
 // ================= SHOP =================
 
 let currentCategory = 'blocks';
 
-const shopData = {
+const shopItemsData = {
 
-    blocks: [
-
-        {
-            id:1,
-            name:'Classic',
-            icon:'🟦',
-            price:0,
-            owned:true
-        },
-
-        {
-            id:2,
-            name:'Rainbow',
-            icon:'🌈',
-            price:100,
-            owned:false
-        },
-
-        {
-            id:3,
-            name:'Gold',
-            icon:'🟨',
-            price:200,
-            owned:false
-        },
-
-        {
-            id:4,
-            name:'Fire',
-            icon:'🔥',
-            price:350,
-            owned:false
-        }
+    blocks:[
+        ['Classic','🟦',0,true],
+        ['Candy','🍬',100,false],
+        ['Sunset','🌇',250,false],
+        ['Ice','❄️',350,false]
     ],
 
-    backgrounds: [
-
-        {
-            id:5,
-            name:'Sunset',
-            icon:'🌅',
-            price:150,
-            owned:false
-        },
-
-        {
-            id:6,
-            name:'Space',
-            icon:'🌌',
-            price:400,
-            owned:false
-        }
+    backgrounds:[
+        ['Clouds','☁️',120,false],
+        ['Night','🌙',240,false],
+        ['Space','🌌',500,false]
     ],
 
-    'power-ups': [
-
-        {
-            id:7,
-            name:'Slow Motion',
-            icon:'⏱️',
-            price:200,
-            owned:false
-        },
-
-        {
-            id:8,
-            name:'Perfect Drop',
-            icon:'🎯',
-            price:500,
-            owned:false
-        }
+    effects:[
+        ['Sparkles','✨',180,false],
+        ['Rainbow','🌈',350,false]
     ]
 };
 
@@ -798,7 +928,7 @@ function switchCategory(category) {
     currentCategory = category;
 
     document
-        .querySelectorAll('.category-btn')
+        .querySelectorAll('.shop-tab')
         .forEach(btn => {
             btn.classList.remove('active');
         });
@@ -808,23 +938,19 @@ function switchCategory(category) {
     );
 
     loadShop();
-
-    hapticFeedback('light');
 }
 
 function loadShop() {
 
-    const shopItems =
+    const grid =
         document.getElementById(
             'shopItems'
         );
 
-    shopItems.innerHTML = '';
-
-    updateCoinsDisplay();
+    grid.innerHTML = '';
 
     const items =
-        shopData[currentCategory];
+        shopItemsData[currentCategory];
 
     items.forEach(item => {
 
@@ -832,88 +958,31 @@ function loadShop() {
             document.createElement('div');
 
         div.className =
-            `shop-item ${
-                item.owned
-                ? 'owned'
-                : ''
-            }`;
-
-        div.onclick =
-            () => buyItem(item);
+            'shop-card';
 
         div.innerHTML = `
 
-            <div class="item-icon">
-                ${item.icon}
+            <div class="shop-icon">
+                ${item[1]}
             </div>
 
-            <div class="item-name">
-                ${item.name}
+            <div class="shop-name">
+                ${item[0]}
             </div>
 
-            ${
-                item.owned
+            <div class="shop-price">
 
-                ? '<div class="item-owned">OWNED</div>'
+                ${
+                    item[3]
+                    ? 'OWNED'
+                    : '💰 ' + item[2]
+                }
 
-                : `<div class="item-price">
-                    💰 ${item.price}
-                   </div>`
-            }
+            </div>
+
         `;
 
-        shopItems.appendChild(div);
-    });
-}
-
-function buyItem(item) {
-
-    if (item.owned) {
-        hapticFeedback('warning');
-        return;
-    }
-
-    if (coins >= item.price) {
-
-        coins -= item.price;
-
-        item.owned = true;
-
-        localStorage.setItem(
-            `shopItem_${item.id}`,
-            'true'
-        );
-
-        updateCoinsDisplay();
-
-        loadShop();
-
-        hapticFeedback('success');
-
-    } else {
-
-        hapticFeedback('error');
-
-        alert(
-            'Not enough coins 💰'
-        );
-    }
-}
-
-function loadOwnedItems() {
-
-    Object.values(shopData)
-        .flat()
-        .forEach(item => {
-
-        const owned =
-            localStorage.getItem(
-                `shopItem_${item.id}`
-            );
-
-        if (owned === 'true') {
-            item.owned = true;
-        }
+        grid.appendChild(div);
     });
 }
 
@@ -925,25 +994,25 @@ document.addEventListener(
     'pointerdown',
     () => {
 
-    const currentScreen =
-        document.querySelector(
-            '.screen:not(.hidden)'
-        );
+        const current =
+            document.querySelector(
+                '.screen:not(.hidden)'
+            );
 
-    if (
-        currentScreen &&
-        currentScreen.id ===
-        'gameScreen' &&
+        if (
+            current &&
+            current.id === 'gameScreen' &&
+            !document
+                .getElementById(
+                    'gameOverOverlay'
+                )
+                .classList.contains('show')
+        ) {
 
-        !document
-            .getElementById(
-                'gameOverOverlay'
-            )
-            .classList.contains('show')
-    ) {
-        dropBlock();
+            dropBlock();
+        }
     }
-});
+);
 
 document
     .getElementById(
@@ -959,14 +1028,23 @@ window.addEventListener(
     resizeCanvas
 );
 
+// ================= LOOP =================
+
+function gameLoop() {
+
+    update();
+
+    draw();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
 // ================= INIT =================
 
 initTelegram();
 
-loadOwnedItems();
-
-updateMenuStats();
-
-updateCoinsDisplay();
+updateStats();
 
 gameLoop();
