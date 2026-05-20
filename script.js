@@ -1129,17 +1129,45 @@ function loadShop() {
     });
 }
 
-// ================= EVENTS =================
+// ================= SAFE INPUT =================
 
-window.addEventListener(
-    'touchstart',
-    handleGameTap,
-    { passive:true }
-);
+const gameScreen =
+    document.getElementById('gameScreen');
 
-window.addEventListener(
-    'mousedown',
-    handleGameTap
+gameScreen.addEventListener(
+    'pointerdown',
+    (e) => {
+
+        // не game
+        if (!gameRunning) return;
+
+        // input disabled
+        if (!inputEnabled) return;
+
+        // game over открыт
+        if (
+            document
+                .getElementById(
+                    'gameOverOverlay'
+                )
+                .classList.contains('show')
+        ) return;
+
+        // кнопки UI
+        if (
+            e.target.closest('button')
+        ) return;
+
+        // защита от double tap
+        const now = Date.now();
+
+        if (now - lastInputTime < 120)
+            return;
+
+        lastInputTime = now;
+
+        dropBlock();
+    }
 );
 
 document
