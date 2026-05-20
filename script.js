@@ -1,697 +1,320 @@
-// ================= TELEGRAM =================
+/*
+Tower Block Telegram Mini App
 
-const tg = window.Telegram?.WebApp;
+Описание:
+Этот файл содержит игровую логику.
+Игрок должен максимально точно ставить платформы друг на друга.
 
-function initTelegram() {
+Принцип работы:
+1. Верхняя платформа двигается.
+2. Игрок нажимает на экран.
+3. Платформа останавливается.
+4. Лишняя часть отрезается.
+5. Башня растет вверх.
+6. За идеальные попадания растет комбо.
+*/
 
-    if (!tg) return;
+// ======================================================
+// 1. Конфигурация игры
+// ======================================================
 
-    tg.ready();
+// Основные настройки
+const GAME_CONFIG = {
 
-    tg.expand();
+    // Высота блока
+    blockHeight: 30,
 
-    tg.BackButton.onClick(() => {
+    // Стартовая ширина
+    startWidth: 240,
 
-        const current =
-            document.querySelector(
-                '.screen:not(.hidden)'
-            );
+    // Минимальная ширина
+    minWidth: 40,
 
-        if (
-            current &&
-            current.id !== 'menuScreen'
-        ) {
+    // Базовая скорость
+    baseSpeed: 3,
 
-            showScreen('menuScreen');
+    // Максимальная скорость
+    maxSpeed: 8,
 
-        } else {
+    // Базовые очки
+    baseScore: 10,
 
-            tg.close();
-        }
-    });
-}
+    // Радиус идеального попадания
+    perfectWindow: 4,
 
-function haptic(type = 'light') {
+    // Шанс редкого блока
+    rareChance: 0.01,
 
-    if (!tg || !tg.HapticFeedback) return;
+    // Смещение камеры
+    cameraOffset: 220
+};
 
-    if (
-        type === 'success' ||
-        type === 'error'
-    ) {
+// ======================================================
+// 2. Получение HTML элементов
+// ======================================================
 
-        tg.HapticFeedback.notificationOccurred(type);
+// Получение canvas
+const canvas = document.getElementById("game-canvas");
 
-    } else {
+// Получение контекста
+const ctx = canvas.getContext("2d");
 
-        tg.HapticFeedback.impactOccurred(type);
-    }
-}
+// Получение экранов
+const menuScreen = document.getElementById("menu-screen");
+const gameScreen = document.getElementById("game-screen");
 
-// ================= SCREENS =================
+// Получение кнопок
+const playButton = document.getElementById("play-button");
 
-function showScreen(id) {
+// Получение текста статистики
+const levelText = document.getElementById("level");
+const scoreText = document.getElementById("score");
+const comboText = document.getElementById("combo");
 
-    haptic();
+// ======================================================
+// 3. Настройка canvas
+// ======================================================
 
-    document
-        .querySelectorAll('.screen')
-        .forEach(screen => {
-
-            screen.classList.add('hidden');
-        });
-
-    const target =
-        document.getElementById(id);
-
-    target.classList.remove('hidden');
-
-    if (tg) {
-
-        if (id === 'menuScreen') {
-
-            tg.BackButton.hide();
-
-        } else {
-
-            tg.BackButton.show();
-        }
-    }
-
-    if (id === 'gameScreen') {
-
-        startGame();
-    }
-
-    if (id === 'leaderboardScreen') {
-
-        loadLeaderboard();
-    }
-
-    if (id === 'shopScreen') {
-
-        loadShop();
-    }
-}
-
-function returnToMenu() {
-
-    gameRunning = false;
-
-    inputEnabled = false;
-
-    document
-        .getElementById(
-            'gameOverOverlay'
-        )
-        .classList.remove('show');
-
-    showScreen('menuScreen');
-
-    updateStats();
-}
-
-// ================= CANVAS =================
-
-const canvas =
-    document.getElementById('gameCanvas');
-
-const ctx =
-    canvas.getContext('2d');
-
+// Функция обновления размеров
 function resizeCanvas() {
 
-    const size =
-        Math.min(
-            window.innerWidth * 0.92,
-            460
-        );
+    canvas.width = window.innerWidth;
 
-    canvas.width = size;
-
-    canvas.height = size * 1.55;
+    canvas.height = window.innerHeight;
 }
 
+// Первичное обновление
 resizeCanvas();
 
-// ================= VARIABLES =================
+// Обновление при ресайзе
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
 
-let score = 0;
+// ======================================================
+// 4. Игровые переменные
+// ======================================================
 
-let bestScore =
-    parseInt(
-        localStorage.getItem('towerBest')
-    ) || 0;
-
-let coins =
-    parseInt(
-        localStorage.getItem('towerCoins')
-    ) || 0;
-
-let gameRunning = false;
-
+// Массив платформ
 let blocks = [];
 
-let currentBlock = null;
+// Массив падающих частей
+let fallingPieces = [];
 
+// Скорость движения
+let moveSpeed = GAME_CONFIG.baseSpeed;
+
+// Направление движения
 let direction = 1;
 
-let speed = 2;
+// Активность игры
+let gameRunning = false;
 
-let blockHeight = 34;
+// Уровень
+let level = 1;
 
-let baseWidth = 180;
+// Очки
+let score = 0;
 
-let cameraOffset = 0;
+// Комбо
+let combo = 1;
 
-let combo = 0;
+// Камера
+let cameraY = 0;
 
-let particles = [];
+// Последнее время кадра
+let lastFrameTime = 0;
 
-// ================= INPUT =================
+// ======================================================
+// 5. Создание стартовой платформы
+// ======================================================
 
-let inputEnabled = false;
+// Функция стартового блока
+function createBaseBlock() {
 
-let lastInputTime = 0;
+    blocks = [
 
-function enableGameInput() {
+        {
 
-    inputEnabled = false;
+            x:
+                canvas.width / 2 -
+                GAME_CONFIG.startWidth / 2,
 
-    setTimeout(() => {
+            y:
+                canvas.height - 120,
 
-        inputEnabled = true;
+            width:
+                GAME_CONFIG.startWidth,
 
-    }, 450);
-}
+            height:
+                GAME_CONFIG.blockHeight,
 
-// ================= COLORS =================
+            moving: false,
 
-const blockPalettes = [
-
-    ['#7fd3ff', '#5ebeff'],
-    ['#ffd57e', '#ffb84d'],
-    ['#ff9db0', '#ff7290'],
-    ['#8effc1', '#55f59a'],
-    ['#d7b5ff', '#af7eff']
-
-];
-
-function getPalette() {
-
-    return blockPalettes[
-        Math.floor(
-            Math.random() *
-            blockPalettes.length
-        )
+            rare: false
+        }
     ];
 }
 
-// ================= HELPERS =================
+// ======================================================
+// 6. Создание движущегося блока
+// ======================================================
 
-function roundRect(
-    ctx,
-    x,
-    y,
-    width,
-    height,
-    radius
+// Функция нового блока
+function createMovingBlock() {
+
+    // Получение прошлого блока
+    const lastBlock = blocks[blocks.length - 1];
+
+    // Проверка редкого блока
+    const isRare =
+        Math.random() <
+        GAME_CONFIG.rareChance;
+
+    // Создание блока
+    blocks.push({
+
+        x:
+            direction > 0
+                ? 0
+                : canvas.width - lastBlock.width,
+
+        y:
+            lastBlock.y -
+            GAME_CONFIG.blockHeight,
+
+        width:
+            lastBlock.width,
+
+        height:
+            GAME_CONFIG.blockHeight,
+
+        moving: true,
+
+        rare: isRare
+    });
+}
+
+// ======================================================
+// 7. Создание падающей части
+// ======================================================
+
+// Функция обрезка
+function createFallingPiece(
+    block,
+    overlap,
+    offset
 ) {
 
-    ctx.moveTo(x + radius, y);
+    // Размер отрезка
+    const cutWidth =
+        block.width - overlap;
 
-    ctx.arcTo(
-        x + width,
-        y,
-        x + width,
-        y + height,
-        radius
-    );
-
-    ctx.arcTo(
-        x + width,
-        y + height,
-        x,
-        y + height,
-        radius
-    );
-
-    ctx.arcTo(
-        x,
-        y + height,
-        x,
-        y,
-        radius
-    );
-
-    ctx.arcTo(
-        x,
-        y,
-        x + width,
-        y,
-        radius
-    );
-
-    ctx.closePath();
-}
-
-function updateStats() {
-
-    const ids = [
-
-        'menuBestScore',
-        'menuCoins',
-        'gameCoins',
-        'shopCoins',
-        'yourCoins'
-
-    ];
-
-    ids.forEach(id => {
-
-        const el =
-            document.getElementById(id);
-
-        if (!el) return;
-
-        if (id === 'menuBestScore') {
-
-            el.textContent = bestScore;
-
-        } else {
-
-            el.textContent = coins;
-        }
-    });
-
-    localStorage.setItem(
-        'towerCoins',
-        coins
-    );
-}
-
-// ================= BLOCK =================
-
-class Block {
-
-    constructor(
-        x,
-        y,
-        width,
-        height,
-        palette
-    ) {
-
-        this.x = x;
-
-        this.y = y;
-
-        this.width = width;
-
-        this.height = height;
-
-        this.palette = palette;
-
-        this.scale = 0;
+    // Проверка существования
+    if (cutWidth <= 0) {
+        return;
     }
 
-    update() {
+    // Создание обрезка
+    fallingPieces.push({
 
-        this.scale +=
-            (1 - this.scale) * 0.18;
-    }
+        x:
+            offset > 0
+                ? block.x + overlap
+                : block.x,
 
-    draw() {
+        y: block.y,
 
-        this.update();
+        width: cutWidth,
 
-        const centerX =
-            this.x + this.width / 2;
+        height: block.height,
 
-        const centerY =
-            this.y + this.height / 2;
-
-        ctx.save();
-
-        ctx.translate(
-            centerX,
-            centerY
-        );
-
-        ctx.scale(
-            this.scale,
-            this.scale
-        );
-
-        ctx.translate(
-            -centerX,
-            -centerY
-        );
-
-        // shadow
-
-        ctx.fillStyle =
-            'rgba(0,0,0,.08)';
-
-        ctx.beginPath();
-
-        roundRect(
-            ctx,
-            this.x + 5,
-            this.y + 7,
-            this.width,
-            this.height,
-            12
-        );
-
-        ctx.fill();
-
-        // gradient
-
-        const gradient =
-            ctx.createLinearGradient(
-                this.x,
-                this.y,
-                this.x,
-                this.y + this.height
-            );
-
-        gradient.addColorStop(
-            0,
-            this.palette[0]
-        );
-
-        gradient.addColorStop(
-            1,
-            this.palette[1]
-        );
-
-        ctx.fillStyle = gradient;
-
-        ctx.beginPath();
-
-        roundRect(
-            ctx,
-            this.x,
-            this.y,
-            this.width,
-            this.height,
-            12
-        );
-
-        ctx.fill();
-
-        // shine
-
-        ctx.fillStyle =
-            'rgba(255,255,255,.18)';
-
-        ctx.beginPath();
-
-        roundRect(
-            ctx,
-            this.x + 4,
-            this.y + 4,
-            this.width - 8,
-            this.height / 2.5,
-            10
-        );
-
-        ctx.fill();
-
-        ctx.restore();
-    }
-}
-
-// ================= PARTICLES =================
-
-function spawnParticles(x, y) {
-
-    for (let i = 0; i < 14; i++) {
-
-        particles.push({
-
-            x,
-            y,
-
-            vx:
-                (Math.random() - .5) * 5,
-
-            vy:
-                Math.random() * -4 - 1,
-
-            size:
-                Math.random() * 8 + 4,
-
-            alpha:1,
-
-            color:[
-
-                '#ffffff',
-                '#7fd3ff',
-                '#ffd57e',
-                '#ff9db0'
-
-            ][
-                Math.floor(
-                    Math.random() * 4
-                )
-            ]
-        });
-    }
-}
-
-function drawParticles() {
-
-    particles.forEach((p, index) => {
-
-        p.x += p.vx;
-
-        p.y += p.vy;
-
-        p.vy += 0.08;
-
-        p.alpha -= 0.02;
-
-        p.size *= 0.985;
-
-        ctx.globalAlpha = p.alpha;
-
-        ctx.fillStyle = p.color;
-
-        ctx.beginPath();
-
-        ctx.arc(
-            p.x,
-            p.y + cameraOffset,
-            p.size,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fill();
-
-        ctx.globalAlpha = 1;
-
-        if (p.alpha <= 0) {
-
-            particles.splice(index, 1);
-        }
+        velocityY: 8
     });
 }
 
-// ================= EFFECTS =================
+// ======================================================
+// 8. Отрисовка платформ
+// ======================================================
 
-function perfectEffect() {
+// Функция рисования
+function drawBlocks() {
 
-    canvas.classList.add(
-        'perfect-flash'
-    );
+    // Отрисовка платформ
+    blocks.forEach(block => {
 
-    setTimeout(() => {
+        // Цвет блока
+        ctx.fillStyle =
+            block.rare
+                ? "#ffd700"
+                : "#ffffff";
 
-        canvas.classList.remove(
-            'perfect-flash'
+        // Рисование блока
+        ctx.fillRect(
+
+            block.x,
+
+            block.y + cameraY,
+
+            block.width,
+
+            block.height
         );
-
-    }, 350);
+    });
 }
 
-function animateScore() {
+// ======================================================
+// 9. Отрисовка падающих частей
+// ======================================================
 
-    const scoreEl =
-        document.getElementById('score');
+// Функция рисования обрезков
+function drawFallingPieces() {
 
-    scoreEl.animate(
-        [
+    // Отрисовка частей
+    fallingPieces.forEach(piece => {
 
-            {
-                transform:'scale(1)'
-            },
+        ctx.fillStyle = "#888888";
 
-            {
-                transform:'scale(1.2)'
-            },
+        ctx.fillRect(
 
-            {
-                transform:'scale(1)'
-            }
+            piece.x,
 
-        ],
-        {
-            duration:180
-        }
-    );
-}
+            piece.y + cameraY,
 
-function spawnComboText(combo) {
+            piece.width,
 
-    const div =
-        document.createElement('div');
-
-    div.className =
-        'combo-text';
-
-    div.innerText =
-        `PERFECT x${combo}`;
-
-    document.body.appendChild(div);
-
-    setTimeout(() => {
-
-        div.remove();
-
-    }, 1000);
-}
-
-// ================= START GAME =================
-
-function startGame() {
-
-    resizeCanvas();
-
-    score = 0;
-
-    combo = 0;
-
-    direction = 1;
-
-    speed =
-        canvas.width * 0.006;
-
-    blockHeight =
-        canvas.height * 0.045;
-
-    baseWidth =
-        canvas.width * 0.42;
-
-    blocks = [];
-
-    currentBlock = null;
-
-    particles = [];
-
-    cameraOffset = 0;
-
-    gameRunning = true;
-
-    enableGameInput();
-
-    document.getElementById(
-        'score'
-    ).textContent = 0;
-
-    const base =
-        new Block(
-
-            canvas.width / 2 -
-            baseWidth / 2,
-
-            canvas.height -
-            blockHeight - 40,
-
-            baseWidth,
-
-            blockHeight,
-
-            getPalette()
+            piece.height
         );
-
-    blocks.push(base);
-
-    createBlock();
+    });
 }
 
-// ================= CREATE BLOCK =================
+// ======================================================
+// 10. Обновление движения блока
+// ======================================================
 
-function createBlock() {
+// Функция движения
+function updateMovingBlock(deltaTime) {
 
-    const last =
+    // Получение блока
+    const currentBlock =
         blocks[blocks.length - 1];
 
-    currentBlock =
-        new Block(
-
-            0,
-
-            last.y - blockHeight,
-
-            last.width,
-
-            blockHeight,
-
-            getPalette()
-        );
-
-    direction = 1;
-
-    currentBlock.x = 0;
-
-    canvas.animate(
-        [
-
-            {
-                transform:'scale(1)'
-            },
-
-            {
-                transform:'scale(1.01)'
-            },
-
-            {
-                transform:'scale(1)'
-            }
-
-        ],
-        {
-            duration:180
-        }
-    );
-}
-
-// ================= UPDATE =================
-
-function update() {
-
-    if (!gameRunning) return;
-
-    if (!currentBlock) return;
-
-    currentBlock.x +=
-        speed * direction;
-
-    // LEFT
-
-    if (currentBlock.x <= 0) {
-
-        currentBlock.x = 0;
-
-        direction = 1;
+    // Проверка движения
+    if (!currentBlock.moving) {
+        return;
     }
 
-    // RIGHT
+    // Обновление позиции
+    currentBlock.x +=
+        moveSpeed *
+        direction *
+        deltaTime;
 
+    // Проверка границ
     if (
+
+        currentBlock.x <= 0 ||
 
         currentBlock.x +
         currentBlock.width >=
@@ -699,489 +322,499 @@ function update() {
 
     ) {
 
-        currentBlock.x =
-            canvas.width -
-            currentBlock.width;
-
-        direction = -1;
+        direction *= -1;
     }
-
-    // CAMERA
-
-    const targetOffset =
-        Math.max(
-
-            0,
-
-            blocks.length *
-            blockHeight -
-
-            canvas.height * 0.55
-        );
-
-    cameraOffset +=
-        (targetOffset - cameraOffset) * 0.06;
 }
 
-// ================= DRAW =================
+// ======================================================
+// 11. Обновление падающих частей
+// ======================================================
 
-function drawBackground() {
+// Функция падения
+function updateFallingPieces(deltaTime) {
 
-    const gradient =
-        ctx.createLinearGradient(
-            0,
-            0,
-            0,
-            canvas.height
+    // Обновление позиции
+    fallingPieces.forEach(piece => {
+
+        piece.y +=
+            piece.velocityY *
+            deltaTime;
+    });
+
+    // Очистка массива
+    fallingPieces =
+        fallingPieces.filter(piece => {
+
+            return (
+                piece.y + cameraY <
+                canvas.height + 200
+            );
+        });
+}
+
+// ======================================================
+// 12. Установка блока
+// ======================================================
+
+// Функция установки
+function placeBlock() {
+
+    // Получение блока
+    const currentBlock =
+        blocks[blocks.length - 1];
+
+    // Защита от двойного тапа
+    if (!currentBlock.moving) {
+        return;
+    }
+
+    // Получение прошлого блока
+    const previousBlock =
+        blocks[blocks.length - 2];
+
+    // Остановка движения
+    currentBlock.moving = false;
+
+    // Смещение
+    const offset =
+        currentBlock.x -
+        previousBlock.x;
+
+    // Размер пересечения
+    const overlap =
+        currentBlock.width -
+        Math.abs(offset);
+
+    // Проверка проигрыша
+    if (
+        overlap <=
+        GAME_CONFIG.minWidth
+    ) {
+
+        gameOver();
+
+        return;
+    }
+
+    // Проверка идеального попадания
+    const perfectHit =
+        Math.abs(offset) <=
+        GAME_CONFIG.perfectWindow;
+
+    // Идеальное попадание
+    if (perfectHit) {
+
+        // Выравнивание
+        currentBlock.x =
+            previousBlock.x;
+
+        // Рост комбо
+        combo += 1;
+
+        // Начисление очков
+        score +=
+            GAME_CONFIG.baseScore *
+            combo;
+
+    } else {
+
+        // Сброс комбо
+        combo = 1;
+
+        // Создание обрезка
+        createFallingPiece(
+            currentBlock,
+            overlap,
+            offset
         );
 
-    gradient.addColorStop(
-        0,
-        '#9be7ff'
+        // Уменьшение ширины
+        currentBlock.width =
+            overlap;
+
+        // Коррекция позиции
+        if (offset > 0) {
+
+            currentBlock.x =
+                previousBlock.x +
+                previousBlock.width -
+                overlap;
+
+        } else {
+
+            currentBlock.x =
+                previousBlock.x;
+        }
+
+        // Начисление очков
+        score +=
+            GAME_CONFIG.baseScore;
+    }
+
+    // Проверка редкого блока
+    if (currentBlock.rare) {
+
+        // Бонусные очки
+        score += 100;
+
+        // Сообщение игроку
+        showMessage(
+            "Редкая платформа! +100"
+        );
+    }
+
+    // Рост уровня
+    level += 1;
+
+    // Увеличение скорости
+    moveSpeed = Math.min(
+
+        GAME_CONFIG.baseSpeed +
+        level * 0.12,
+
+        GAME_CONFIG.maxSpeed
     );
 
-    gradient.addColorStop(
-        1,
-        '#f6fbff'
+    // Обновление интерфейса
+    updateUI();
+
+    // Обновление камеры
+    moveCamera();
+
+    // Проверка наград
+    checkRewards();
+
+    // Создание нового блока
+    createMovingBlock();
+}
+
+// ======================================================
+// 13. Обновление интерфейса
+// ======================================================
+
+// Функция UI
+function updateUI() {
+
+    levelText.innerText = level;
+
+    scoreText.innerText = score;
+
+    comboText.innerText =
+        "x" + combo;
+}
+
+// ======================================================
+// 14. Движение камеры
+// ======================================================
+
+// Функция камеры
+function moveCamera() {
+
+    // Получение последнего блока
+    const lastBlock =
+        blocks[blocks.length - 1];
+
+    // Смещение камеры
+    cameraY =
+
+        canvas.height -
+
+        lastBlock.y -
+
+        GAME_CONFIG.cameraOffset;
+}
+
+// ======================================================
+// 15. Проверка наград
+// ======================================================
+
+// Функция наград
+function checkRewards() {
+
+    // Проверка уровня
+    if (level === 50) {
+
+        showMessage(
+            "Бонус за 50 этаж"
+        );
+    }
+
+    // Проверка уровня
+    if (level === 100) {
+
+        showMessage(
+            "Редкий бонус за 100 этаж"
+        );
+    }
+}
+
+// ======================================================
+// 16. Система сообщений
+// ======================================================
+
+// Функция уведомлений
+function showMessage(text) {
+
+    // Создание элемента
+    const message =
+        document.createElement("div");
+
+    // Текст уведомления
+    message.innerText = text;
+
+    // Стили
+    message.style.position =
+        "absolute";
+
+    message.style.top = "80px";
+
+    message.style.left = "50%";
+
+    message.style.transform =
+        "translateX(-50%)";
+
+    message.style.background =
+        "#ffffff";
+
+    message.style.color =
+        "#000000";
+
+    message.style.padding =
+        "12px 20px";
+
+    message.style.borderRadius =
+        "12px";
+
+    message.style.zIndex =
+        "999";
+
+    // Добавление элемента
+    document.body.appendChild(
+        message
     );
 
-    ctx.fillStyle = gradient;
+    // Удаление уведомления
+    setTimeout(() => {
 
-    ctx.fillRect(
+        message.remove();
+
+    }, 2000);
+}
+
+// ======================================================
+// 17. Отрисовка сцены
+// ======================================================
+
+// Функция рендера
+function render() {
+
+    // Очистка canvas
+    ctx.clearRect(
         0,
         0,
         canvas.width,
         canvas.height
     );
+
+    // Отрисовка блоков
+    drawBlocks();
+
+    // Отрисовка обрезков
+    drawFallingPieces();
 }
 
-function draw() {
+// ======================================================
+// 18. Игровой цикл
+// ======================================================
 
-    drawBackground();
+// Главная функция игры
+function gameLoop(timestamp) {
 
-    ctx.save();
-
-    ctx.translate(
-        0,
-        cameraOffset
-    );
-
-    blocks.forEach(block => {
-
-        block.draw();
-    });
-
-    if (
-        currentBlock &&
-        gameRunning
-    ) {
-
-        currentBlock.draw();
-    }
-
-    ctx.restore();
-
-    drawParticles();
-}
-
-// ================= DROP =================
-
-function dropBlock() {
-
-    if (
-        !gameRunning ||
-        !currentBlock
-    ) return;
-
-    haptic();
-
-    const last =
-        blocks[blocks.length - 1];
-
-    const overlapStart =
-        Math.max(
-            currentBlock.x,
-            last.x
-        );
-
-    const overlapEnd =
-        Math.min(
-
-            currentBlock.x +
-            currentBlock.width,
-
-            last.x +
-            last.width
-        );
-
-    const overlapWidth =
-        overlapEnd - overlapStart;
-
-    if (overlapWidth <= 0) {
-
-        endGame();
-
+    // Проверка активности
+    if (!gameRunning) {
         return;
     }
 
-    const accuracy =
-        overlapWidth /
-        currentBlock.width;
+    // Расчет deltaTime
+    const deltaTime =
 
-    if (accuracy > 0.96) {
+        (timestamp - lastFrameTime) /
+        16.67;
 
-        combo++;
+    // Обновление времени
+    lastFrameTime = timestamp;
 
-        perfectEffect();
+    // Обновление движения
+    updateMovingBlock(deltaTime);
 
-        spawnComboText(combo);
+    // Обновление падения
+    updateFallingPieces(deltaTime);
 
-        haptic('success');
+    // Отрисовка
+    render();
 
-    } else {
-
-        combo = 0;
-    }
-
-    currentBlock.x =
-        overlapStart;
-
-    currentBlock.width =
-        overlapWidth;
-
-    blocks.push(currentBlock);
-
-    score++;
-
-    animateScore();
-
-    document.getElementById(
-        'score'
-    ).textContent = score;
-
-    speed +=
-        canvas.width * 0.00008;
-
-    if (blocks.length > 18) {
-
-        blocks.shift();
-
-        blocks.forEach(block => {
-
-            block.y += blockHeight;
-        });
-    }
-
-    spawnParticles(
-
-        currentBlock.x +
-        currentBlock.width / 2,
-
-        currentBlock.y
-    );
-
-    createBlock();
-}
-
-// ================= GAME OVER =================
-
-function endGame() {
-
-    gameRunning = false;
-
-    inputEnabled = false;
-
-    haptic('error');
-
-    const earned =
-        Math.floor(score / 2);
-
-    coins += earned;
-
-    if (score > bestScore) {
-
-        bestScore = score;
-
-        localStorage.setItem(
-            'towerBest',
-            bestScore
-        );
-    }
-
-    updateStats();
-
-    document.getElementById(
-        'finalScore'
-    ).textContent = score;
-
-    document.getElementById(
-        'coinsEarned'
-    ).textContent = earned;
-
-    document.getElementById(
-        'bestScore'
-    ).textContent = bestScore;
-
-    document
-        .getElementById(
-            'gameOverOverlay'
-        )
-        .classList.add('show');
-}
-
-function restartGame() {
-
-    document
-        .getElementById(
-            'gameOverOverlay'
-        )
-        .classList.remove('show');
-
-    startGame();
-}
-
-// ================= LEADERBOARD =================
-
-function switchTab(tab) {
-
-    document
-        .querySelectorAll('.tab')
-        .forEach(btn => {
-
-            btn.classList.remove('active');
-        });
-
-    event.target.classList.add(
-        'active'
-    );
-
-    loadLeaderboard();
-}
-
-function loadLeaderboard() {
-
-    const list =
-        document.getElementById(
-            'leaderboardList'
-        );
-
-    list.innerHTML = '';
-
-    const data = [
-
-        ['Oliver',245],
-        ['Emma',220],
-        ['Lucas',198],
-        ['Sophia',176],
-        ['Liam',150],
-        ['Mia',132],
-        ['Noah',120]
-
-    ];
-
-    data.forEach((player, index) => {
-
-        const item =
-            document.createElement('div');
-
-        item.className =
-            'leader-item';
-
-        item.innerHTML = `
-
-            <div class="leader-left">
-
-                <div class="leader-rank">
-                    #${index + 1}
-                </div>
-
-                <div class="leader-name">
-                    ${player[0]}
-                </div>
-
-            </div>
-
-            <div class="leader-score">
-                ${player[1]}
-            </div>
-
-        `;
-
-        list.appendChild(item);
-    });
-
-    document.getElementById(
-        'yourScore'
-    ).textContent = bestScore;
-}
-
-// ================= SHOP =================
-
-let currentCategory = 'blocks';
-
-const shopItemsData = {
-
-    blocks:[
-
-        ['Classic','🟦',0,true],
-        ['Candy','🍬',100,false],
-        ['Sunset','🌇',250,false],
-        ['Ice','❄️',350,false]
-
-    ],
-
-    backgrounds:[
-
-        ['Clouds','☁️',120,false],
-        ['Night','🌙',240,false],
-        ['Space','🌌',500,false]
-
-    ],
-
-    effects:[
-
-        ['Sparkles','✨',180,false],
-        ['Rainbow','🌈',350,false]
-
-    ]
-};
-
-function switchCategory(category) {
-
-    currentCategory = category;
-
-    document
-        .querySelectorAll('.shop-tab')
-        .forEach(btn => {
-
-            btn.classList.remove('active');
-        });
-
-    event.target.classList.add(
-        'active'
-    );
-
-    loadShop();
-}
-
-function loadShop() {
-
-    const grid =
-        document.getElementById(
-            'shopItems'
-        );
-
-    grid.innerHTML = '';
-
-    const items =
-        shopItemsData[currentCategory];
-
-    items.forEach(item => {
-
-        const div =
-            document.createElement('div');
-
-        div.className =
-            'shop-card';
-
-        div.innerHTML = `
-
-            <div class="shop-icon">
-                ${item[1]}
-            </div>
-
-            <div class="shop-name">
-                ${item[0]}
-            </div>
-
-            <div class="shop-price">
-
-                ${
-                    item[3]
-                    ? 'OWNED'
-                    : '💰 ' + item[2]
-                }
-
-            </div>
-
-        `;
-
-        grid.appendChild(div);
-    });
-}
-
-// ================= INPUT EVENTS =================
-
-const gameScreen =
-    document.getElementById('gameScreen');
-
-gameScreen.addEventListener(
-    'pointerdown',
-    (e) => {
-
-        if (!gameRunning) return;
-
-        if (!inputEnabled) return;
-
-        if (
-
-            document
-                .getElementById(
-                    'gameOverOverlay'
-                )
-                .classList.contains('show')
-
-        ) return;
-
-        if (
-            e.target.closest('button')
-        ) return;
-
-        const now = Date.now();
-
-        if (
-            now - lastInputTime < 120
-        ) return;
-
-        lastInputTime = now;
-
-        dropBlock();
-    }
-);
-
-// ================= EVENTS =================
-
-document
-    .getElementById(
-        'restartButton'
-    )
-    .addEventListener(
-        'click',
-        restartGame
-    );
-
-window.addEventListener(
-    'resize',
-    resizeCanvas
-);
-
-// ================= LOOP =================
-
-function gameLoop() {
-
-    update();
-
-    draw();
-
+    // Новый кадр
     requestAnimationFrame(
         gameLoop
     );
 }
 
-// ================= INIT =================
+// ======================================================
+// 19. Запуск игры
+// ======================================================
 
-initTelegram();
+// Функция запуска
+function startGame() {
 
-updateStats();
+    // Скрытие меню
+    menuScreen.classList.add(
+        "hidden"
+    );
 
-gameLoop();
+    // Показ игры
+    gameScreen.classList.remove(
+        "hidden"
+    );
+
+    // Сброс значений
+    level = 1;
+
+    score = 0;
+
+    combo = 1;
+
+    direction = 1;
+
+    cameraY = 0;
+
+    // Очистка массивов
+    blocks = [];
+
+    fallingPieces = [];
+
+    // Сброс скорости
+    moveSpeed =
+        GAME_CONFIG.baseSpeed;
+
+    // Создание платформ
+    createBaseBlock();
+
+    createMovingBlock();
+
+    // Обновление UI
+    updateUI();
+
+    // Запуск игры
+    gameRunning = true;
+
+    // Сброс времени
+    lastFrameTime =
+        performance.now();
+
+    // Старт цикла
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+// ======================================================
+// 20. Завершение игры
+// ======================================================
+
+// Функция конца игры
+function gameOver() {
+
+    // Остановка игры
+    gameRunning = false;
+
+    // Сообщение
+    showMessage(
+
+        "Игра окончена. Очки: " +
+        score
+    );
+
+    // Возврат в меню
+    setTimeout(() => {
+
+        menuScreen.classList.remove(
+            "hidden"
+        );
+
+        gameScreen.classList.add(
+            "hidden"
+        );
+
+    }, 1500);
+}
+
+// ======================================================
+// 21. Telegram Mini App
+// ======================================================
+
+// Проверка Telegram API
+if (
+    window.Telegram &&
+    Telegram.WebApp
+) {
+
+    // Инициализация
+    Telegram.WebApp.ready();
+
+    // Раскрытие окна
+    Telegram.WebApp.expand();
+}
+
+// ======================================================
+// 22. Пауза игры
+// ======================================================
+
+// Проверка скрытия вкладки
+document.addEventListener(
+
+    "visibilitychange",
+
+    () => {
+
+        // Проверка сворачивания
+        if (document.hidden) {
+
+            gameRunning = false;
+
+        } else {
+
+            // Проверка наличия игры
+            if (blocks.length > 0) {
+
+                gameRunning = true;
+
+                lastFrameTime =
+                    performance.now();
+
+                requestAnimationFrame(
+                    gameLoop
+                );
+            }
+        }
+    }
+);
+
+// ======================================================
+// 23. События управления
+// ======================================================
+
+// Кнопка запуска
+playButton.addEventListener(
+
+    "click",
+
+    startGame
+);
+
+// Управление через касание
+canvas.addEventListener(
+
+    "pointerdown",
+
+    placeBlock
+);
