@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Luggage Tower</title>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+body {
+    margin: 0;
+    background: #0f172a;
+    font-family: sans-serif;
+    color: white;
+    overflow: hidden;
+}
+#ui {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+#items {
+    font-size: 14px;
+    opacity: 0.8;
+}
+canvas {
+    display: block;
+}
+#gameOver {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+}
+button {
+    padding: 15px 30px;
+    font-size: 18px;
+    border-radius: 10px;
+    border: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+    <div>Башня: <span id="score">0</span></div>
+    <div id="items">Предметы: 0</div>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="gameOver">
+    <button onclick="restart()">Играть снова</button>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+// ====== ДАННЫЕ ======
+const ITEMS = [
+    {name: "Очки", emoji: "🕶️"},
+    {name: "Куртка", emoji: "🧥"},
+    {name: "Кроссовки", emoji: "👟"},
+    {name: "Рюкзак", emoji: "🎒"},
+    {name: "Часы", emoji: "⌚"},
+    {name: "Шапка", emoji: "🧢"}
+];
+
+// ====== НАСТРОЙКИ ======
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W, H;
+
+function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
+}
+resize();
+window.onresize = resize;
+
+// ====== СОСТОЯНИЕ ======
+let blocks = [];
+let current = null;
+let dir = 1;
+let speed = 4;
+let score = 0;
+let gameOver = false;
+let collected = new Set();
+
+// ====== БЛОК ======
+class Block {
+    constructor(x, y, w, item) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = 40;
+        this.item = item;
+        this.stopped = false;
+    }
+
+    draw() {
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+
+        ctx.fillStyle = "white";
+        ctx.font = "22px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(this.item.emoji, this.x + this.w/2, this.y + 26);
+    }
+}
+
+// ====== СПАВН ======
+function spawn() {
+    let w = blocks.length ? blocks[blocks.length-1].w : 120;
+    let y = blocks.length ? blocks[blocks.length-1].y - 40 : H - 120;
+
+    current = new Block(W/2 - w/2, y, w, randomItem());
+    dir = 1;
+}
+
+function randomItem() {
+    return ITEMS[Math.floor(Math.random() * ITEMS.length)];
+}
+
+// ====== ЛОГИКА ======
+function place() {
+    if (!current || gameOver) return;
+
+    let last = blocks[blocks.length-1];
+
+    if (!last) {
+        blocks.push(current);
+        spawn();
+        return;
+    }
+
+    let overlap =
+        Math.min(last.x + last.w, current.x + current.w) -
+        Math.max(last.x, current.x);
+
+    if (overlap <= 0) {
+        endGame();
+        return;
+    }
+
+    current.x = Math.max(last.x, current.x);
+    current.w = overlap;
+
+    blocks.push(current);
+
+    collected.add(current.item.name);
+
+    score++;
+    updateUI();
+
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
+
+    setTimeout(spawn, 200);
+}
+
+function endGame() {
+    gameOver = true;
+    document.getElementById("gameOver").style.display = "block";
+
+    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+}
+
+// ====== UI ======
+function updateUI() {
+    document.getElementById("score").innerText = score;
+    document.getElementById("items").innerText =
+        "Предметы: " + collected.size;
+}
+
+// ====== РЕНДЕР ======
+function loop() {
+    if (gameOver) return;
+
+    ctx.clearRect(0, 0, W, H);
+
+    blocks.forEach(b => b.draw());
+
+    if (current) {
+        current.x += speed * dir;
+
+        if (current.x <= 0 || current.x + current.w >= W) {
+            dir *= -1;
+        }
+
+        current.draw();
+    }
+
+    requestAnimationFrame(loop);
+}
+
+// ====== УПРАВЛЕНИЕ ======
+window.addEventListener("click", place);
+
+function restart() {
+    blocks = [];
+    score = 0;
+    collected.clear();
+    gameOver = false;
+
+    document.getElementById("gameOver").style.display = "none";
+
+    updateUI();
+    spawn();
+    loop();
+}
+
+// старт
+spawn();
+loop();
+
+</script>
+</body>
+</html>
