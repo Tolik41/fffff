@@ -11,14 +11,15 @@
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
             background: var(--tg-theme-bg-color, #121212);
             color: var(--tg-theme-text-color, #fff);
             touch-action: none;
+            position: relative;
         }
 
         #gameCanvas {
@@ -34,30 +35,57 @@
             left: 0;
             width: 100%;
             height: 100%;
-            display: none;
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 20px;
             background: var(--tg-theme-bg-color, #121212);
             z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .screen.active {
-            display: flex;
+            opacity: 1;
+            pointer-events: all;
+            transform: translateY(0);
         }
 
         .title {
             font-size: 48px;
             font-weight: bold;
             margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            color: var(--tg-theme-text-color, #fff);
+            transform: scale(0.9);
+            opacity: 0;
+            animation: titlePop 0.8s 0.2s forwards;
+        }
+
+        @keyframes titlePop {
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
 
         .subtitle {
             font-size: 18px;
             opacity: 0.8;
             margin-bottom: 40px;
+            transform: translateY(10px);
+            opacity: 0;
+            animation: subtitleSlide 0.6s 0.4s forwards;
+        }
+
+        @keyframes subtitleSlide {
+            to {
+                transform: translateY(0);
+                opacity: 0.8;
+            }
         }
 
         .btn {
@@ -66,16 +94,37 @@
             font-size: 18px;
             font-weight: bold;
             border: none;
-            border-radius: 12px;
-            background: var(--tg-theme-button-color, #3390ec);
+            border-radius: 50px;
+            background: var(--tg-theme-button-color, #ff3366);
             color: var(--tg-theme-button-text-color, #fff);
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             min-width: 200px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transform: translateY(0);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::after,
+        .btn:active::after {
+            left: 100%;
         }
 
         .btn:active {
-            transform: scale(0.95);
+            transform: translateY(2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
         .btn-secondary {
@@ -87,16 +136,27 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.5);
-            padding: 10px 20px;
-            border-radius: 20px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 50px;
             font-size: 24px;
             font-weight: bold;
             z-index: 5;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        .stats.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
 
         .coin {
             color: #FFD700;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
         }
 
         .shop-container, .leaderboard-container {
@@ -104,24 +164,37 @@
             max-width: 500px;
             overflow-y: auto;
             max-height: 70vh;
+            padding: 10px;
+            margin-top: 20px;
         }
 
         .shop-item {
             background: var(--tg-theme-secondary-bg-color, #2c2c2e);
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transform: translateY(0);
+        }
+
+        .shop-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
 
         .shop-item.owned {
-            opacity: 0.6;
+            opacity: 0.7;
         }
 
         .shop-item.selected {
-            border: 2px solid var(--tg-theme-button-color, #3390ec);
+            border: 3px solid var(--tg-theme-button-color, #ff3366);
+            box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.3);
+            transform: translateY(-5px) scale(1.02);
         }
 
         .item-info {
@@ -129,9 +202,10 @@
         }
 
         .item-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            color: var(--tg-theme-text-color, #fff);
         }
 
         .item-desc {
@@ -140,57 +214,77 @@
         }
 
         .item-price {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
             color: #FFD700;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 10px 15px;
+            border-radius: 50px;
+            display: inline-block;
         }
 
         .leaderboard-item {
             background: var(--tg-theme-secondary-bg-color, #2c2c2e);
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
         .leaderboard-item.current-player {
-            border: 2px solid var(--tg-theme-button-color, #3390ec);
+            border: 3px solid var(--tg-theme-button-color, #ff3366);
+            box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.3);
+            transform: scale(1.03);
         }
 
         .rank {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
-            width: 40px;
+            width: 50px;
+            text-align: center;
         }
 
         .player-info {
             flex: 1;
-            margin-left: 15px;
+            margin-left: 20px;
+            font-size: 18px;
         }
 
         .score {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             color: #FFD700;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 10px 20px;
+            border-radius: 50px;
         }
 
         .game-over-panel {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9);
-            padding: 30px;
-            border-radius: 20px;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(0,0,0,0.95);
+            padding: 40px;
+            border-radius: 30px;
             text-align: center;
             display: none;
             z-index: 15;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .game-over-panel.active {
             display: block;
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
         }
 
         .final-score {
@@ -198,62 +292,154 @@
             font-weight: bold;
             color: #FFD700;
             margin: 20px 0;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+            animation: scorePulse 2s infinite;
+        }
+
+        @keyframes scorePulse {
+            0%, 100% { text-shadow: 0 0 20px rgba(255, 215, 0, 0.7); }
+            50% { text-shadow: 0 0 30px rgba(255, 215, 0, 1); }
         }
 
         .combo-indicator {
             position: absolute;
-            top: 80px;
+            top: 100px;
             left: 50%;
-            transform: translateX(-50%);
-            font-size: 32px;
+            transform: translateX(-50%) scale(0.5);
+            font-size: 40px;
             font-weight: bold;
             color: #FFD700;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
             z-index: 5;
             opacity: 0;
-            transition: opacity 0.3s;
+            pointer-events: none;
+            animation: comboBounce 0.6s forwards;
         }
 
-        .combo-indicator.active {
-            opacity: 1;
+        @keyframes comboBounce {
+            0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+            50% { transform: translateX(-50%) scale(1.2); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+
+        .combo-indicator.fade-out {
+            animation: comboFadeOut 0.6s forwards;
+        }
+
+        @keyframes comboFadeOut {
+            0% { transform: translateX(-50%) scale(1); opacity: 1; }
+            100% { transform: translateX(-50%) scale(0.8); opacity: 0; }
         }
 
         .balance {
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(0,0,0,0.5);
-            padding: 10px 20px;
-            border-radius: 20px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 50px;
             font-size: 20px;
             font-weight: bold;
             z-index: 5;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .balance.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Animation for menu items */
+        .menu-item {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideIn 0.6s forwards;
+        }
+
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Loading indicator */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--tg-theme-bg-color, #121212);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid var(--tg-theme-button-color, #ff3366);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loadingScreen">
+        <div class="loader"></div>
+    </div>
+
     <!-- Game Canvas -->
     <canvas id="gameCanvas"></canvas>
     
     <!-- UI Stats -->
-    <div class="stats" id="statsUI" style="display: none;">
+    <div class="stats" id="statsUI">
         Score: <span id="scoreDisplay">0</span>
     </div>
     
-    <div class="balance" id="balanceUI" style="display: none;">
+    <div class="balance" id="balanceUI">
         <span class="coin">💰</span> <span id="balanceDisplay">0</span>
     </div>
 
+    <!-- Combo Indicator -->
     <div class="combo-indicator" id="comboIndicator"></div>
 
     <!-- Main Menu Screen -->
     <div class="screen active" id="mainMenu">
         <div class="title">🧳 Tower Block</div>
         <div class="subtitle">Построй самую высокую башню!</div>
-        <button class="btn" onclick="startGame()">🎮 Играть</button>
-        <button class="btn btn-secondary" onclick="showShop()">🛒 Магазин</button>
-        <button class="btn btn-secondary" onclick="showLeaderboard()">🏆 Лидерборд</button>
-        <div style="margin-top: 20px; opacity: 0.7;">
+        <button class="btn menu-item" style="animation-delay: 0.2s;" onclick="startGame()">🎮 Играть</button>
+        <button class="btn btn-secondary menu-item" style="animation-delay: 0.4s;" onclick="showShop()">🛒 Магазин</button>
+        <button class="btn btn-secondary menu-item" style="animation-delay: 0.6s;" onclick="showLeaderboard()">🏆 Лидерборд</button>
+        <div style="margin-top: 30px; opacity: 0.7; animation: slideIn 0.6s 0.8s forwards; opacity: 0;">
             Лучший счет: <span id="bestScoreDisplay">0</span><br>
             <span class="coin">💰</span> Баланс: <span id="mainBalanceDisplay">0</span>
         </div>
@@ -264,7 +450,7 @@
         <div class="title">🛒 Магазин</div>
         <div class="subtitle">Купи новые скины для чемоданов</div>
         <div class="shop-container" id="shopContainer"></div>
-        <button class="btn" onclick="showMainMenu()">← Назад</button>
+        <button class="btn" onclick="showMainMenu()" style="margin-top: 20px;">← Назад</button>
     </div>
 
     <!-- Leaderboard Screen -->
@@ -272,19 +458,19 @@
         <div class="title">🏆 Лидерборд</div>
         <div class="subtitle">Топ игроков</div>
         <div class="leaderboard-container" id="leaderboardContainer"></div>
-        <button class="btn" onclick="showMainMenu()">← Назад</button>
+        <button class="btn" onclick="showMainMenu()" style="margin-top: 20px;">← Назад</button>
     </div>
 
     <!-- Game Over Panel -->
     <div class="game-over-panel" id="gameOverPanel">
-        <div style="font-size: 48px; margin-bottom: 20px;">💥 Game Over!</div>
-        <div>Твой счет:</div>
+        <div style="font-size: 48px; margin-bottom: 20px; color: #ff3366;">💥 Game Over!</div>
+        <div style="font-size: 24px; margin-bottom: 10px;">Твой счет:</div>
         <div class="final-score" id="finalScore">0</div>
-        <div style="margin: 20px 0;">
+        <div style="margin: 20px 0; font-size: 20px;">
             Заработано: <span class="coin">💰</span> <span id="earnedCoins">0</span>
         </div>
-        <button class="btn" onclick="restartGame()">🔄 Еще раз</button>
-        <button class="btn btn-secondary" onclick="showMainMenu()">← В меню</button>
+        <button class="btn" onclick="restartGame()" style="margin: 10px;">🔄 Еще раз</button>
+        <button class="btn btn-secondary" onclick="showMainMenu()" style="margin: 10px;">← В меню</button>
     </div>
 
     <script>
@@ -293,13 +479,23 @@
         tg.expand();
         tg.enableClosingConfirmation();
 
+        // Apply theme colors
+        document.documentElement.style.setProperty('--tg-theme-bg-color', tg.backgroundColor || '#121212');
+        document.documentElement.style.setProperty('--tg-theme-text-color', tg.textColor || '#ffffff');
+        document.documentElement.style.setProperty('--tg-theme-button-color', tg.buttonColor || '#ff3366');
+        document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.buttonTextColor || '#ffffff');
+        document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.secondaryBackgroundColor || '#2c2c2e');
+
         // Canvas Setup
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Game State
+        // Particles array
+        let particles = [];
+
+        // Game State with Spring Physics
         let gameState = {
             isPlaying: false,
             score: 0,
@@ -310,45 +506,64 @@
             balance: 0,
             bestScore: 0,
             ownedSkins: ['default'],
-            selectedSkin: 'default'
+            selectedSkin: 'default',
+            // Spring physics for smooth movement
+            targetSpeed: 2,
+            springFactor: 0.1,
+            damping: 0.9
         };
 
-        // Skins Database
+        // Skins Database with enhanced graphics
         const skins = {
             default: {
                 name: 'Обычный чемодан',
                 desc: 'Стандартный чемодан',
                 price: 0,
                 color: '#8B4513',
-                pointsMultiplier: 1
+                highlight: '#A0522D',
+                shadow: '#5C3317',
+                pointsMultiplier: 1,
+                speedModifier: 1.0
             },
             retro: {
                 name: 'Ретро-чемодан',
                 desc: 'Винтажный стиль',
                 price: 50,
                 color: '#D2691E',
-                pointsMultiplier: 1
+                highlight: '#DEB887',
+                shadow: '#8B4513',
+                pointsMultiplier: 1,
+                speedModifier: 0.9
             },
             gold: {
                 name: 'Золотой кейс',
                 desc: 'Дает x2 очков!',
                 price: 200,
                 color: '#FFD700',
-                pointsMultiplier: 2
+                highlight: '#FFEC8B',
+                shadow: '#B8860B',
+                pointsMultiplier: 2,
+                speedModifier: 1.0
             },
             gucci: {
                 name: 'Чемодан Gucci',
                 desc: 'Премиум стиль, x2 очков',
                 price: 500,
                 color: '#8B0000',
-                pointsMultiplier: 2
+                highlight: '#FF6347',
+                shadow: '#4B0000',
+                pointsMultiplier: 2,
+                speedModifier: 1.1
             },
             cyber: {
                 name: 'Киберпанк кейс',
                 desc: 'Неоновый стиль',
                 price: 300,
                 color: '#00FFFF',
-                pointsMultiplier: 1.5
+                highlight: '#00FF7F',
+                shadow: '#008B8B',
+                pointsMultiplier: 1.5,
+                speedModifier: 0.8
             }
         };
 
@@ -361,20 +576,32 @@
             { name: 'Игрок5', score: 72 }
         ];
 
-        // Background zones
-        function getBackgroundGradient(score) {
+        // Background zones with gradients
+        function getBackground(score) {
             if (score < 20) {
-                return ['#87CEEB', '#B0E0E6']; // Airport
+                return {
+                    gradient: ['#87CEEB', '#B0E0E6'],
+                    name: 'Аэропорт'
+                };
             } else if (score < 50) {
-                return ['#1e3c72', '#2a5298']; // Sky
+                return {
+                    gradient: ['#1e3c72', '#2a5298'],
+                    name: 'Небо'
+                };
             } else if (score < 100) {
-                return ['#0f0c29', '#302b63']; // Stratosphere
+                return {
+                    gradient: ['#0f0c29', '#302b63'],
+                    name: 'Стратосфера'
+                };
             } else {
-                return ['#000000', '#1a0033']; // Space
+                return {
+                    gradient: ['#000000', '#1a0033'],
+                    name: 'Космос'
+                };
             }
         }
 
-        // Block Class
+        // Block Class with enhanced graphics and physics
         class Block {
             constructor(x, y, width, height) {
                 this.x = x;
@@ -383,30 +610,157 @@
                 this.height = height;
                 this.moving = true;
                 this.direction = 1;
+                this.velocity = 0;
+                this.targetX = x;
+                this.springFactor = 0.15;
+                this.damping = 0.95;
+                this.rotation = 0;
+                this.rotationVelocity = 0;
+                this.dropStarted = false;
+                this.dropY = 0;
+                this.dropVelocity = 0;
+                this.dropAcceleration = 0.8;
+                this.landed = false;
+                this.bounceCount = 0;
+                this.scale = 1;
+                this.scaleVelocity = 0;
             }
 
             update() {
-                if (this.moving) {
-                    this.x += gameState.speed * this.direction;
-                    if (this.x <= 0 || this.x + this.width >= canvas.width) {
+                if (this.moving && !this.dropStarted) {
+                    // Smooth spring-based movement instead of direct movement
+                    this.targetX += gameState.speed * this.direction;
+                    
+                    if (this.targetX <= 0 || this.targetX + this.width >= canvas.width) {
                         this.direction *= -1;
+                    }
+                    
+                    // Spring physics for smooth movement
+                    this.velocity += (this.targetX - this.x) * this.springFactor;
+                    this.velocity *= this.damping;
+                    this.x += this.velocity;
+                }
+                
+                if (this.dropStarted && !this.landed) {
+                    // Drop animation with gravity
+                    this.dropVelocity += this.dropAcceleration;
+                    this.y += this.dropVelocity;
+                    
+                    // Check collision with previous block
+                    if (this.y >= this.dropY) {
+                        this.y = this.dropY;
+                        this.dropVelocity *= -0.6; // Bounce
+                        this.bounceCount++;
+                        
+                        if (Math.abs(this.dropVelocity) < 1 || this.bounceCount > 2) {
+                            this.landed = true;
+                            this.dropVelocity = 0;
+                            
+                            // Scale animation on landing
+                            this.scaleVelocity = -0.2;
+                        }
+                    }
+                }
+                
+                // Scale animation
+                if (this.scale !== 1 || this.scaleVelocity !== 0) {
+                    this.scale += this.scaleVelocity;
+                    this.scaleVelocity *= 0.9;
+                    
+                    if (Math.abs(this.scale - 1) < 0.01) {
+                        this.scale = 1;
+                        this.scaleVelocity = 0;
                     }
                 }
             }
 
             draw() {
                 const skin = skins[gameState.selectedSkin];
-                ctx.fillStyle = skin.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.save();
+                ctx.translate(this.x + this.width/2, this.y + this.height/2);
+                ctx.rotate(this.rotation);
+                ctx.scale(this.scale, this.scale);
+                ctx.translate(-(this.x + this.width/2), -(this.y + this.height/2));
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(this.x + 5, this.y + 5, this.width, this.height);
+                
+                // Main block with gradient
+                const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+                gradient.addColorStop(0, skin.highlight);
+                gradient.addColorStop(0.5, skin.color);
+                gradient.addColorStop(1, skin.shadow);
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.width, this.height, 10);
+                ctx.fill();
                 
                 // Border
-                ctx.strokeStyle = '#000';
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                ctx.stroke();
+                
+                // Glossy effect
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.beginPath();
+                ctx.roundRect(this.x + 5, this.y + 5, this.width - 10, this.height/3, 5);
+                ctx.fill();
                 
                 // Handle
-                ctx.fillStyle = '#000';
-                ctx.fillRect(this.x + this.width/2 - 10, this.y + 5, 20, 5);
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.beginPath();
+                ctx.roundRect(this.x + this.width/2 - 15, this.y + 8, 30, 8, 4);
+                ctx.fill();
+                
+                // Handle details
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.roundRect(this.x + this.width/2 - 12, this.y + 10, 24, 4, 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        // Particle System
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 5 + 3;
+                this.speedX = Math.random() * 3 - 1.5;
+                this.speedY = Math.random() * -3 - 1;
+                this.gravity = 0.1;
+                this.color = color;
+                this.opacity = 1;
+                this.life = 60;
+                this.maxLife = 60;
+            }
+            
+            update() {
+                this.speedY += this.gravity;
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life--;
+                this.opacity = this.life / this.maxLife;
+            }
+            
+            draw() {
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Create explosion particles
+        function createParticles(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
             }
         }
 
@@ -421,6 +775,11 @@
                 gameState.selectedSkin = data.selectedSkin || 'default';
             }
             updateUI();
+            
+            // Hide loading screen
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.add('hidden');
+            }, 500);
         }
 
         // Save Game Data
@@ -440,9 +799,13 @@
             document.getElementById('mainBalanceDisplay').textContent = gameState.balance;
             document.getElementById('scoreDisplay').textContent = gameState.score;
             document.getElementById('balanceDisplay').textContent = gameState.balance;
+            
+            // Show UI elements with animation
+            document.getElementById('statsUI').classList.add('visible');
+            document.getElementById('balanceUI').classList.add('visible');
         }
 
-        // Screen Navigation
+        // Screen Navigation with animations
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -451,8 +814,8 @@
         function showMainMenu() {
             showScreen('mainMenu');
             document.getElementById('gameOverPanel').classList.remove('active');
-            document.getElementById('statsUI').style.display = 'none';
-            document.getElementById('balanceUI').style.display = 'none';
+            document.getElementById('statsUI').classList.remove('visible');
+            document.getElementById('balanceUI').classList.remove('visible');
             gameState.isPlaying = false;
             updateUI();
         }
@@ -489,8 +852,8 @@
                     </div>
                     <div>
                         ${owned ? 
-                            (selected ? '<span style="color: #4CAF50;">✓ Выбран</span>' : 
-                             '<button class="btn" onclick="selectSkin(\'' + skinId + '\')">Выбрать</button>') :
+                            (selected ? '<span style="color: #4CAF50; font-size: 18px;">✓ Выбран</span>' : 
+                             '<button class="btn" style="padding: 8px 20px; font-size: 16px;" onclick="selectSkin(\'' + skinId + '\')">Выбрать</button>') :
                             '<div class="item-price">💰 ' + skin.price + '</div>'
                         }
                     </div>
@@ -509,7 +872,9 @@
             const skin = skins[skinId];
             if (gameState.balance >= skin.price) {
                 gameState.balance -= skin.price;
-                gameState.ownedSkins.push(skinId);
+                if (!gameState.ownedSkins.includes(skinId)) {
+                    gameState.ownedSkins.push(skinId);
+                }
                 saveGameData();
                 renderShop();
                 updateUI();
@@ -567,21 +932,24 @@
             gameState.score = 0;
             gameState.combo = 0;
             gameState.speed = 2;
+            gameState.targetSpeed = 2;
             gameState.blocks = [];
+            particles = [];
             
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById('gameOverPanel').classList.remove('active');
-            document.getElementById('statsUI').style.display = 'block';
-            document.getElementById('balanceUI').style.display = 'block';
+            document.getElementById('statsUI').classList.add('visible');
+            document.getElementById('balanceUI').classList.add('visible');
             
             // First block at bottom
             const firstBlock = new Block(
                 canvas.width / 2 - 75,
-                canvas.height - 50,
+                canvas.height - 80,
                 150,
                 30
             );
             firstBlock.moving = false;
+            firstBlock.landed = true;
             gameState.blocks.push(firstBlock);
             
             spawnNewBlock();
@@ -594,7 +962,7 @@
             const lastBlock = gameState.blocks[gameState.blocks.length - 1];
             const newBlock = new Block(
                 0,
-                lastBlock.y - 40,
+                lastBlock.y - 70,
                 lastBlock.width,
                 30
             );
@@ -606,18 +974,22 @@
         function dropBlock() {
             if (!gameState.isPlaying || !gameState.currentBlock || !gameState.currentBlock.moving) return;
             
-            gameState.currentBlock.moving = false;
-            
             const currentBlock = gameState.currentBlock;
-            const previousBlock = gameState.blocks[gameState.blocks.length - 2];
+            currentBlock.moving = false;
+            currentBlock.dropStarted = true;
+            currentBlock.dropY = currentBlock.y;
+            
+            // Find the previous block
+            const previousBlockIndex = gameState.blocks.indexOf(currentBlock) - 1;
+            const previousBlock = gameState.blocks[previousBlockIndex];
             
             // Calculate overlap
             const overlapLeft = Math.max(currentBlock.x, previousBlock.x);
             const overlapRight = Math.min(currentBlock.x + currentBlock.width, previousBlock.x + previousBlock.width);
             const overlapWidth = overlapRight - overlapLeft;
             
+            // If miss - Game Over
             if (overlapWidth <= 0) {
-                // Miss - Game Over
                 gameOver();
                 return;
             }
@@ -626,54 +998,85 @@
             const accuracy = Math.abs(currentBlock.x - previousBlock.x);
             const isPerfect = accuracy < 5;
             
+            // Perfect hit effects
             if (isPerfect) {
-                // Perfect placement
                 gameState.combo++;
                 showCombo();
                 tg.HapticFeedback.impactOccurred('medium');
                 
+                // Create particles
+                const centerX = currentBlock.x + currentBlock.width / 2;
+                const centerY = currentBlock.y + currentBlock.height / 2;
+                const skin = skins[gameState.selectedSkin];
+                createParticles(centerX, centerY, 20, skin.highlight);
+                
                 // Expand block slightly every 3 perfect hits
                 if (gameState.combo % 3 === 0 && currentBlock.width < 200) {
-                    currentBlock.width += 10;
-                    currentBlock.x -= 5;
+                    // Animate expansion
+                    const expandAmount = 10;
+                    currentBlock.scaleVelocity = 0.3;
+                    setTimeout(() => {
+                        currentBlock.width += expandAmount;
+                        currentBlock.x -= expandAmount / 2;
+                    }, 200);
                 }
             } else {
                 // Cut the block
                 gameState.combo = 0;
                 hideCombo();
+                tg.HapticFeedback.impactOccurred('light');
+                
                 currentBlock.x = overlapLeft;
                 currentBlock.width = overlapWidth;
-                tg.HapticFeedback.impactOccurred('light');
             }
             
-            // Increase speed
-            gameState.speed += 0.1;
+            // Increase speed gradually
+            gameState.targetSpeed += 0.1;
             
-            // Score
+            // Score calculation
             const skin = skins[gameState.selectedSkin];
-            const points = Math.floor(1 * skin.pointsMultiplier * (isPerfect ? 2 : 1));
+            const basePoints = 1;
+            const multiplier = skin.pointsMultiplier * (isPerfect ? 2 : 1);
+            const points = Math.floor(basePoints * multiplier);
             gameState.score += points;
             gameState.balance += points;
             
             updateUI();
             
-            // Spawn next block
-            setTimeout(() => {
-                if (gameState.isPlaying) {
-                    spawnNewBlock();
+            // Spawn next block after landing
+            const checkLanding = setInterval(() => {
+                if (currentBlock.landed) {
+                    clearInterval(checkLanding);
+                    setTimeout(() => {
+                        if (gameState.isPlaying) {
+                            spawnNewBlock();
+                        }
+                    }, 500);
                 }
-            }, 300);
+            }, 50);
         }
 
         // Show Combo
         function showCombo() {
             const comboEl = document.getElementById('comboIndicator');
-            comboEl.textContent = `🔥 COMBO x${gameState.combo}`;
-            comboEl.classList.add('active');
+            comboEl.textContent = `🔥 PERFECT x${gameState.combo}`;
+            comboEl.classList.remove('fade-out');
+            
+            // Reset animation
+            comboEl.style.animation = 'none';
+            setTimeout(() => {
+                comboEl.style.animation = 'comboBounce 0.6s forwards';
+            }, 10);
+            
+            // Auto hide after delay
+            setTimeout(() => {
+                comboEl.classList.add('fade-out');
+            }, 2000);
         }
 
         function hideCombo() {
-            document.getElementById('comboIndicator').classList.remove('active');
+            const comboEl = document.getElementById('comboIndicator');
+            comboEl.classList.add('fade-out');
         }
 
         // Game Over
@@ -703,13 +1106,30 @@
         function gameLoop() {
             if (!gameState.isPlaying) return;
             
-            // Clear canvas
-            const bgColors = getBackgroundGradient(gameState.score);
+            // Update physics
+            gameState.speed += (gameState.targetSpeed - gameState.speed) * 0.05;
+            
+            // Clear canvas with gradient background
+            const bgInfo = getBackground(gameState.score);
+            const bgColors = bgInfo.gradient;
             const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             gradient.addColorStop(0, bgColors[0]);
             gradient.addColorStop(1, bgColors[1]);
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background zone name
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(bgInfo.name, canvas.width / 2, 50);
+            
+            // Update and draw particles
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
             
             // Update and draw blocks
             gameState.blocks.forEach(block => {
