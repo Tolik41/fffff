@@ -185,43 +185,6 @@ function enableGameInput() {
     }, 450);
 }
 
-function handleGameTap(e) {
-
-    if (!inputEnabled) return;
-
-    if (!gameRunning) return;
-
-    const now = Date.now();
-
-    if (now - lastInputTime < 120) return;
-
-    lastInputTime = now;
-
-    const current =
-        document.querySelector(
-            '.screen:not(.hidden)'
-        );
-
-    if (
-        !current ||
-        current.id !== 'gameScreen'
-    ) return;
-
-    if (
-        document
-            .getElementById(
-                'gameOverOverlay'
-            )
-            .classList.contains('show')
-    ) return;
-
-    if (
-        e.target.closest('button')
-    ) return;
-
-    dropBlock();
-}
-
 // ================= COLORS =================
 
 const blockPalettes = [
@@ -669,7 +632,7 @@ function createBlock() {
     currentBlock =
         new Block(
 
-            -last.width,
+            0,
 
             last.y - blockHeight,
 
@@ -679,6 +642,10 @@ function createBlock() {
 
             getPalette()
         );
+
+    direction = 1;
+
+    currentBlock.x = 0;
 
     canvas.animate(
         [
@@ -706,17 +673,25 @@ function createBlock() {
 
 function update() {
 
-    if (
-        !gameRunning ||
-        !currentBlock
-    ) return;
+    if (!gameRunning) return;
+
+    if (!currentBlock) return;
 
     currentBlock.x +=
         speed * direction;
 
-    if (
+    // LEFT
 
-        currentBlock.x <= 0 ||
+    if (currentBlock.x <= 0) {
+
+        currentBlock.x = 0;
+
+        direction = 1;
+    }
+
+    // RIGHT
+
+    if (
 
         currentBlock.x +
         currentBlock.width >=
@@ -724,8 +699,14 @@ function update() {
 
     ) {
 
-        direction *= -1;
+        currentBlock.x =
+            canvas.width -
+            currentBlock.width;
+
+        direction = -1;
     }
+
+    // CAMERA
 
     const targetOffset =
         Math.max(
@@ -1129,7 +1110,7 @@ function loadShop() {
     });
 }
 
-// ================= SAFE INPUT =================
+// ================= INPUT EVENTS =================
 
 const gameScreen =
     document.getElementById('gameScreen');
@@ -1138,37 +1119,37 @@ gameScreen.addEventListener(
     'pointerdown',
     (e) => {
 
-        // не game
         if (!gameRunning) return;
 
-        // input disabled
         if (!inputEnabled) return;
 
-        // game over открыт
         if (
+
             document
                 .getElementById(
                     'gameOverOverlay'
                 )
                 .classList.contains('show')
+
         ) return;
 
-        // кнопки UI
         if (
             e.target.closest('button')
         ) return;
 
-        // защита от double tap
         const now = Date.now();
 
-        if (now - lastInputTime < 120)
-            return;
+        if (
+            now - lastInputTime < 120
+        ) return;
 
         lastInputTime = now;
 
         dropBlock();
     }
 );
+
+// ================= EVENTS =================
 
 document
     .getElementById(
