@@ -3,189 +3,738 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suitcase Tower</title>
+    <title>Tower Block - Telegram Game</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root {
-            --bg-color: var(--tg-theme-bg-color, #1a1a2e);
-            --text-color: var(--tg-theme-text-color, #ffffff);
-            --button-color: var(--tg-theme-button-color, #4e54c8);
-            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
-        body { margin: 0; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; overflow: hidden; height: 100vh; }
-        canvas { display: block; width: 100vw; height: 100vh; }
-        .ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
-        .menu { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 20px; pointer-events: auto; text-align: center; width: 80%; max-width: 300px; }
-        button { background: var(--button-color); color: var(--button-text-color); border: none; padding: 15px 30px; border-radius: 10px; font-size: 18px; margin: 10px; cursor: pointer; width: 100%; }
-        #hud { position: absolute; top: 20px; left: 20px; pointer-events: none; font-size: 20px; }
-        .hidden { display: none !important; }
-        h1 { margin-top: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            background: var(--tg-theme-bg-color, #121212);
+            color: var(--tg-theme-text-color, #fff);
+            touch-action: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #1e3c72, #2a5298);
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: var(--tg-theme-bg-color, #121212);
+            z-index: 10;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            font-size: 18px;
+            opacity: 0.8;
+            margin-bottom: 40px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+            cursor: pointer;
+            transition: transform 0.1s;
+            min-width: 200px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-secondary {
+            background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+        }
+
+        .stats {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 5;
+        }
+
+        .coin {
+            color: #FFD700;
+        }
+
+        .shop-container, .leaderboard-container {
+            width: 100%;
+            max-width: 500px;
+            overflow-y: auto;
+            max-height: 70vh;
+        }
+
+        .shop-item {
+            background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shop-item.owned {
+            opacity: 0.6;
+        }
+
+        .shop-item.selected {
+            border: 2px solid var(--tg-theme-button-color, #3390ec);
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .item-desc {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .item-price {
+            font-size: 20px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .leaderboard-item {
+            background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .leaderboard-item.current-player {
+            border: 2px solid var(--tg-theme-button-color, #3390ec);
+        }
+
+        .rank {
+            font-size: 24px;
+            font-weight: bold;
+            width: 40px;
+        }
+
+        .player-info {
+            flex: 1;
+            margin-left: 15px;
+        }
+
+        .score {
+            font-size: 20px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .game-over-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 15;
+        }
+
+        .game-over-panel.active {
+            display: block;
+        }
+
+        .final-score {
+            font-size: 64px;
+            font-weight: bold;
+            color: #FFD700;
+            margin: 20px 0;
+        }
+
+        .combo-indicator {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .combo-indicator.active {
+            opacity: 1;
+        }
+
+        .balance {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 5;
+        }
     </style>
 </head>
 <body>
-
-<div id="hud">Очки: <span id="score">0</span> | Монет: <span id="coins">0</span></div>
-
-<div id="ui" class="ui">
-    <!-- Главное меню -->
-    <div id="main-menu" class="menu">
-        <h1>Suitcase Tower</h1>
-        <button onclick="startGame()">Играть</button>
-        <button onclick="showShop()">Магазин</button>
-        <button onclick="showLeaderboard()">Топ игроков</button>
-    </div>
-
-    <!-- Магазин -->
-    <div id="shop-menu" class="menu hidden">
-        <h2>Магазин</h2>
-        <div id="shop-items"></div>
-        <button onclick="backToMenu()">Назад</button>
-    </div>
-
-    <!-- Лидерборд -->
-    <div id="leaderboard-menu" class="menu hidden">
-        <h2>Топ игроков</h2>
-        <div id="leaderboard-list"></div>
-        <button onclick="backToMenu()">Назад</button>
-    </div>
-</div>
-
-<canvas id="game"></canvas>
-
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.ready(); tg.expand();
-
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
     
-    // Состояние игры
-    let gameState = 'menu'; // menu, playing, shop, leaderboard
-    let score = 0;
-    let coins = parseInt(localStorage.getItem('coins')) || 0;
-    let bestScore = parseInt(localStorage.getItem('bestScore')) || 0;
-    let purchasedSkins = JSON.parse(localStorage.getItem('purchased')) || ['default'];
-    let activeSkin = localStorage.getItem('activeSkin') || 'default';
+    <!-- UI Stats -->
+    <div class="stats" id="statsUI" style="display: none;">
+        Score: <span id="scoreDisplay">0</span>
+    </div>
+    
+    <div class="balance" id="balanceUI" style="display: none;">
+        <span class="coin">💰</span> <span id="balanceDisplay">0</span>
+    </div>
 
-    const skins = {
-        'default': { name: 'Стандарт', price: 0, color: '#3498db' },
-        'retro': { name: 'Ретро', price: 50, color: '#e67e22' },
-        'gold': { name: 'Золотой', price: 200, color: '#f1c40f' }
-    };
+    <div class="combo-indicator" id="comboIndicator"></div>
 
-    let blocks = [];
-    let currentBlock = null;
-    let direction = 1;
-    const blockHeight = 40;
-    const blockWidth = 120;
+    <!-- Main Menu Screen -->
+    <div class="screen active" id="mainMenu">
+        <div class="title">🧳 Tower Block</div>
+        <div class="subtitle">Построй самую высокую башню!</div>
+        <button class="btn" onclick="startGame()">🎮 Играть</button>
+        <button class="btn btn-secondary" onclick="showShop()">🛒 Магазин</button>
+        <button class="btn btn-secondary" onclick="showLeaderboard()">🏆 Лидерборд</button>
+        <div style="margin-top: 20px; opacity: 0.7;">
+            Лучший счет: <span id="bestScoreDisplay">0</span><br>
+            <span class="coin">💰</span> Баланс: <span id="mainBalanceDisplay">0</span>
+        </div>
+    </div>
 
-    function startGame() {
-        gameState = 'playing';
-        document.getElementById('ui').classList.add('hidden');
-        blocks = [{x: (canvas.width-blockWidth)/2, y: canvas.height - 100, w: blockWidth}];
-        score = 0;
-        document.getElementById('score').innerText = score;
-        spawnBlock();
-        requestAnimationFrame(loop);
-    }
+    <!-- Shop Screen -->
+    <div class="screen" id="shopScreen">
+        <div class="title">🛒 Магазин</div>
+        <div class="subtitle">Купи новые скины для чемоданов</div>
+        <div class="shop-container" id="shopContainer"></div>
+        <button class="btn" onclick="showMainMenu()">← Назад</button>
+    </div>
 
-    function spawnBlock() {
-        currentBlock = { x: 0, y: blocks[blocks.length-1].y - blockHeight, w: blocks[blocks.length-1].w, dir: 1 };
-    }
+    <!-- Leaderboard Screen -->
+    <div class="screen" id="leaderboardScreen">
+        <div class="title">🏆 Лидерборд</div>
+        <div class="subtitle">Топ игроков</div>
+        <div class="leaderboard-container" id="leaderboardContainer"></div>
+        <button class="btn" onclick="showMainMenu()">← Назад</button>
+    </div>
 
-    function loop() {
-        if (gameState !== 'playing') return;
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-        
-        // Рисуем башню
-        blocks.forEach((b, i) => {
-            ctx.fillStyle = skins[activeSkin].color;
-            ctx.fillRect(b.x, b.y, b.w, blockHeight);
+    <!-- Game Over Panel -->
+    <div class="game-over-panel" id="gameOverPanel">
+        <div style="font-size: 48px; margin-bottom: 20px;">💥 Game Over!</div>
+        <div>Твой счет:</div>
+        <div class="final-score" id="finalScore">0</div>
+        <div style="margin: 20px 0;">
+            Заработано: <span class="coin">💰</span> <span id="earnedCoins">0</span>
+        </div>
+        <button class="btn" onclick="restartGame()">🔄 Еще раз</button>
+        <button class="btn btn-secondary" onclick="showMainMenu()">← В меню</button>
+    </div>
+
+    <script>
+        // Telegram WebApp Init
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Game State
+        let gameState = {
+            isPlaying: false,
+            score: 0,
+            combo: 0,
+            speed: 2,
+            blocks: [],
+            currentBlock: null,
+            balance: 0,
+            bestScore: 0,
+            ownedSkins: ['default'],
+            selectedSkin: 'default'
+        };
+
+        // Skins Database
+        const skins = {
+            default: {
+                name: 'Обычный чемодан',
+                desc: 'Стандартный чемодан',
+                price: 0,
+                color: '#8B4513',
+                pointsMultiplier: 1
+            },
+            retro: {
+                name: 'Ретро-чемодан',
+                desc: 'Винтажный стиль',
+                price: 50,
+                color: '#D2691E',
+                pointsMultiplier: 1
+            },
+            gold: {
+                name: 'Золотой кейс',
+                desc: 'Дает x2 очков!',
+                price: 200,
+                color: '#FFD700',
+                pointsMultiplier: 2
+            },
+            gucci: {
+                name: 'Чемодан Gucci',
+                desc: 'Премиум стиль, x2 очков',
+                price: 500,
+                color: '#8B0000',
+                pointsMultiplier: 2
+            },
+            cyber: {
+                name: 'Киберпанк кейс',
+                desc: 'Неоновый стиль',
+                price: 300,
+                color: '#00FFFF',
+                pointsMultiplier: 1.5
+            }
+        };
+
+        // Mock Leaderboard Data
+        const leaderboardData = [
+            { name: 'Игрок1', score: 156 },
+            { name: 'Игрок2', score: 134 },
+            { name: 'Игрок3', score: 98 },
+            { name: 'Игрок4', score: 87 },
+            { name: 'Игрок5', score: 72 }
+        ];
+
+        // Background zones
+        function getBackgroundGradient(score) {
+            if (score < 20) {
+                return ['#87CEEB', '#B0E0E6']; // Airport
+            } else if (score < 50) {
+                return ['#1e3c72', '#2a5298']; // Sky
+            } else if (score < 100) {
+                return ['#0f0c29', '#302b63']; // Stratosphere
+            } else {
+                return ['#000000', '#1a0033']; // Space
+            }
+        }
+
+        // Block Class
+        class Block {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.moving = true;
+                this.direction = 1;
+            }
+
+            update() {
+                if (this.moving) {
+                    this.x += gameState.speed * this.direction;
+                    if (this.x <= 0 || this.x + this.width >= canvas.width) {
+                        this.direction *= -1;
+                    }
+                }
+            }
+
+            draw() {
+                const skin = skins[gameState.selectedSkin];
+                ctx.fillStyle = skin.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Border
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // Handle
+                ctx.fillStyle = '#000';
+                ctx.fillRect(this.x + this.width/2 - 10, this.y + 5, 20, 5);
+            }
+        }
+
+        // Load Game Data
+        function loadGameData() {
+            const saved = localStorage.getItem('towerBlockGame');
+            if (saved) {
+                const data = JSON.parse(saved);
+                gameState.balance = data.balance || 0;
+                gameState.bestScore = data.bestScore || 0;
+                gameState.ownedSkins = data.ownedSkins || ['default'];
+                gameState.selectedSkin = data.selectedSkin || 'default';
+            }
+            updateUI();
+        }
+
+        // Save Game Data
+        function saveGameData() {
+            const data = {
+                balance: gameState.balance,
+                bestScore: gameState.bestScore,
+                ownedSkins: gameState.ownedSkins,
+                selectedSkin: gameState.selectedSkin
+            };
+            localStorage.setItem('towerBlockGame', JSON.stringify(data));
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('bestScoreDisplay').textContent = gameState.bestScore;
+            document.getElementById('mainBalanceDisplay').textContent = gameState.balance;
+            document.getElementById('scoreDisplay').textContent = gameState.score;
+            document.getElementById('balanceDisplay').textContent = gameState.balance;
+        }
+
+        // Screen Navigation
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showMainMenu() {
+            showScreen('mainMenu');
+            document.getElementById('gameOverPanel').classList.remove('active');
+            document.getElementById('statsUI').style.display = 'none';
+            document.getElementById('balanceUI').style.display = 'none';
+            gameState.isPlaying = false;
+            updateUI();
+        }
+
+        function showShop() {
+            showScreen('shopScreen');
+            renderShop();
+        }
+
+        function showLeaderboard() {
+            showScreen('leaderboardScreen');
+            renderLeaderboard();
+        }
+
+        // Render Shop
+        function renderShop() {
+            const container = document.getElementById('shopContainer');
+            container.innerHTML = '';
+            
+            Object.keys(skins).forEach(skinId => {
+                const skin = skins[skinId];
+                const owned = gameState.ownedSkins.includes(skinId);
+                const selected = gameState.selectedSkin === skinId;
+                
+                const item = document.createElement('div');
+                item.className = 'shop-item';
+                if (owned) item.classList.add('owned');
+                if (selected) item.classList.add('selected');
+                
+                item.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-name">${skin.name}</div>
+                        <div class="item-desc">${skin.desc}</div>
+                    </div>
+                    <div>
+                        ${owned ? 
+                            (selected ? '<span style="color: #4CAF50;">✓ Выбран</span>' : 
+                             '<button class="btn" onclick="selectSkin(\'' + skinId + '\')">Выбрать</button>') :
+                            '<div class="item-price">💰 ' + skin.price + '</div>'
+                        }
+                    </div>
+                `;
+                
+                if (!owned && skinId !== 'default') {
+                    item.onclick = () => buySkin(skinId);
+                }
+                
+                container.appendChild(item);
+            });
+        }
+
+        // Buy Skin
+        function buySkin(skinId) {
+            const skin = skins[skinId];
+            if (gameState.balance >= skin.price) {
+                gameState.balance -= skin.price;
+                gameState.ownedSkins.push(skinId);
+                saveGameData();
+                renderShop();
+                updateUI();
+                tg.HapticFeedback.notificationOccurred('success');
+            } else {
+                tg.HapticFeedback.notificationOccurred('error');
+                alert('Недостаточно монет!');
+            }
+        }
+
+        // Select Skin
+        function selectSkin(skinId) {
+            gameState.selectedSkin = skinId;
+            saveGameData();
+            renderShop();
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // Render Leaderboard
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboardContainer');
+            container.innerHTML = '';
+            
+            // Get current player name from Telegram
+            const currentPlayerName = tg.initDataUnsafe?.user?.first_name || 'Ты';
+            
+            // Add current player to leaderboard
+            const allPlayers = [
+                ...leaderboardData,
+                { name: currentPlayerName, score: gameState.bestScore, current: true }
+            ].sort((a, b) => b.score - a.score).slice(0, 10);
+            
+            allPlayers.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                if (player.current) item.classList.add('current-player');
+                
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                
+                item.innerHTML = `
+                    <div class="rank">${medal || (index + 1)}</div>
+                    <div class="player-info">
+                        <div>${player.name}</div>
+                    </div>
+                    <div class="score">${player.score}</div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+
+        // Start Game
+        function startGame() {
+            gameState.isPlaying = true;
+            gameState.score = 0;
+            gameState.combo = 0;
+            gameState.speed = 2;
+            gameState.blocks = [];
+            
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('gameOverPanel').classList.remove('active');
+            document.getElementById('statsUI').style.display = 'block';
+            document.getElementById('balanceUI').style.display = 'block';
+            
+            // First block at bottom
+            const firstBlock = new Block(
+                canvas.width / 2 - 75,
+                canvas.height - 50,
+                150,
+                30
+            );
+            firstBlock.moving = false;
+            gameState.blocks.push(firstBlock);
+            
+            spawnNewBlock();
+            updateUI();
+            gameLoop();
+        }
+
+        // Spawn New Block
+        function spawnNewBlock() {
+            const lastBlock = gameState.blocks[gameState.blocks.length - 1];
+            const newBlock = new Block(
+                0,
+                lastBlock.y - 40,
+                lastBlock.width,
+                30
+            );
+            gameState.currentBlock = newBlock;
+            gameState.blocks.push(newBlock);
+        }
+
+        // Drop Block
+        function dropBlock() {
+            if (!gameState.isPlaying || !gameState.currentBlock || !gameState.currentBlock.moving) return;
+            
+            gameState.currentBlock.moving = false;
+            
+            const currentBlock = gameState.currentBlock;
+            const previousBlock = gameState.blocks[gameState.blocks.length - 2];
+            
+            // Calculate overlap
+            const overlapLeft = Math.max(currentBlock.x, previousBlock.x);
+            const overlapRight = Math.min(currentBlock.x + currentBlock.width, previousBlock.x + previousBlock.width);
+            const overlapWidth = overlapRight - overlapLeft;
+            
+            if (overlapWidth <= 0) {
+                // Miss - Game Over
+                gameOver();
+                return;
+            }
+            
+            // Calculate accuracy
+            const accuracy = Math.abs(currentBlock.x - previousBlock.x);
+            const isPerfect = accuracy < 5;
+            
+            if (isPerfect) {
+                // Perfect placement
+                gameState.combo++;
+                showCombo();
+                tg.HapticFeedback.impactOccurred('medium');
+                
+                // Expand block slightly every 3 perfect hits
+                if (gameState.combo % 3 === 0 && currentBlock.width < 200) {
+                    currentBlock.width += 10;
+                    currentBlock.x -= 5;
+                }
+            } else {
+                // Cut the block
+                gameState.combo = 0;
+                hideCombo();
+                currentBlock.x = overlapLeft;
+                currentBlock.width = overlapWidth;
+                tg.HapticFeedback.impactOccurred('light');
+            }
+            
+            // Increase speed
+            gameState.speed += 0.1;
+            
+            // Score
+            const skin = skins[gameState.selectedSkin];
+            const points = Math.floor(1 * skin.pointsMultiplier * (isPerfect ? 2 : 1));
+            gameState.score += points;
+            gameState.balance += points;
+            
+            updateUI();
+            
+            // Spawn next block
+            setTimeout(() => {
+                if (gameState.isPlaying) {
+                    spawnNewBlock();
+                }
+            }, 300);
+        }
+
+        // Show Combo
+        function showCombo() {
+            const comboEl = document.getElementById('comboIndicator');
+            comboEl.textContent = `🔥 COMBO x${gameState.combo}`;
+            comboEl.classList.add('active');
+        }
+
+        function hideCombo() {
+            document.getElementById('comboIndicator').classList.remove('active');
+        }
+
+        // Game Over
+        function gameOver() {
+            gameState.isPlaying = false;
+            tg.HapticFeedback.notificationOccurred('error');
+            
+            if (gameState.score > gameState.bestScore) {
+                gameState.bestScore = gameState.score;
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+            
+            saveGameData();
+            
+            document.getElementById('finalScore').textContent = gameState.score;
+            document.getElementById('earnedCoins').textContent = gameState.score;
+            document.getElementById('gameOverPanel').classList.add('active');
+        }
+
+        // Restart Game
+        function restartGame() {
+            document.getElementById('gameOverPanel').classList.remove('active');
+            startGame();
+        }
+
+        // Game Loop
+        function gameLoop() {
+            if (!gameState.isPlaying) return;
+            
+            // Clear canvas
+            const bgColors = getBackgroundGradient(gameState.score);
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, bgColors[0]);
+            gradient.addColorStop(1, bgColors[1]);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw blocks
+            gameState.blocks.forEach(block => {
+                block.update();
+                block.draw();
+            });
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Touch/Click Handler
+        canvas.addEventListener('click', dropBlock);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            dropBlock();
         });
 
-        // Движение
-        if (currentBlock) {
-            currentBlock.x += 4 * direction;
-            if (currentBlock.x + currentBlock.w > canvas.width || currentBlock.x < 0) direction *= -1;
-            ctx.fillStyle = skins[activeSkin].color;
-            ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.w, blockHeight);
-        }
-        requestAnimationFrame(loop);
-    }
-
-    // Управление
-    window.addEventListener('click', () => {
-        if (gameState !== 'playing') return;
-        
-        const last = blocks[blocks.length-1];
-        const overlap = Math.min(last.x + last.w, currentBlock.x + currentBlock.w) - Math.max(last.x, currentBlock.x);
-        
-        if (overlap <= 0) {
-            endGame();
-            return;
-        }
-
-        currentBlock.w = overlap;
-        currentBlock.x = Math.max(last.x, currentBlock.x);
-        blocks.push(currentBlock);
-        score++;
-        coins++;
-        document.getElementById('score').innerText = score;
-        document.getElementById('coins').innerText = coins;
-        localStorage.setItem('coins', coins);
-        
-        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-        spawnBlock();
-    });
-
-    function endGame() {
-        gameState = 'menu';
-        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-        document.getElementById('ui').classList.remove('hidden');
-        alert('Игра окончена! Счет: ' + score);
-    }
-
-    // Магазин
-    function showShop() {
-        document.getElementById('main-menu').classList.add('hidden');
-        document.getElementById('shop-menu').classList.remove('hidden');
-        const list = document.getElementById('shop-items');
-        list.innerHTML = '';
-        Object.keys(skins).forEach(id => {
-            const s = skins[id];
-            const btn = document.createElement('button');
-            const isOwned = purchasedSkins.includes(id);
-            btn.innerText = `${s.name} ${isOwned ? (activeSkin === id ? '(Выбрано)' : '(Куплено)') : '(' + s.price + ' монет)'}`;
-            btn.onclick = () => buySkin(id);
-            list.appendChild(btn);
+        // Window Resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         });
-    }
 
-    function buySkin(id) {
-        if (purchasedSkins.includes(id)) {
-            activeSkin = id;
-            localStorage.setItem('activeSkin', id);
-        } else if (coins >= skins[id].price) {
-            coins -= skins[id].price;
-            purchasedSkins.push(id);
-            localStorage.setItem('coins', coins);
-            localStorage.setItem('purchased', JSON.stringify(purchasedSkins));
-        }
-        showShop();
-    }
-
-    function backToMenu() {
-        document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden'));
-        document.getElementById('main-menu').classList.remove('hidden');
-    }
-
-    function showLeaderboard() {
-        document.getElementById('main-menu').classList.add('hidden');
-        document.getElementById('leaderboard-menu').classList.remove('hidden');
-        const list = document.getElementById('leaderboard-list');
-        list.innerHTML = `<div>${tg.initDataUnsafe?.user?.first_name || 'Вы'}: ${score}</div><div>Друг: 45</div><div>Игрок: 30</div>`;
-    }
-
-</script>
+        // Initialize
+        loadGameData();
+    </script>
 </body>
 </html>
