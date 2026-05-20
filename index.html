@@ -1,477 +1,231 @@
+<!--
+Tower Block Telegram Mini App
+
+Описание:
+Этот файл отвечает за интерфейс игры.
+Содержит меню, игровую сцену и подключение стилей и скриптов.
+
+Принцип работы:
+1. Отображает главное меню.
+2. Запускает игровую сцену.
+3. Подключает canvas для рендера.
+4. Подключает script.js с игровой логикой.
+-->
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
         name="viewport"
-        content="
-            width=device-width,
-            initial-scale=1.0,
-            maximum-scale=1.0,
-            user-scalable=no
-        "
+        content="width=device-width, initial-scale=1.0"
     >
 
-    <meta name="theme-color" content="#8ed8ff">
+    <title>Tower Block</title>
 
-    <title>Tower Stack</title>
-
-    <!-- Telegram -->
+    <!-- 1. Подключение Telegram WebApp API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- 2. Встроенные стили -->
+    <style>
 
-    <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossorigin
-    >
+        /* ====================================================== */
+        /* 1. Базовые стили */
+        /* ====================================================== */
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap"
-        rel="stylesheet"
-    >
+        body {
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
+            margin: 0;
+
+            padding: 0;
+
+            overflow: hidden;
+
+            background: #111111;
+
+            color: white;
+
+            font-family: Arial, sans-serif;
+        }
+
+        /* ====================================================== */
+        /* 2. Главное меню */
+        /* ====================================================== */
+
+        #menu-screen {
+
+            width: 100vw;
+
+            height: 100vh;
+
+            display: flex;
+
+            flex-direction: column;
+
+            justify-content: center;
+
+            align-items: center;
+
+            gap: 16px;
+        }
+
+        /* Заголовок игры */
+        .game-title {
+
+            font-size: 42px;
+
+            font-weight: bold;
+        }
+
+        /* ====================================================== */
+        /* 3. Кнопки */
+        /* ====================================================== */
+
+        button {
+
+            width: 260px;
+
+            height: 56px;
+
+            border: none;
+
+            border-radius: 14px;
+
+            background: white;
+
+            color: black;
+
+            font-size: 18px;
+
+            cursor: pointer;
+        }
+
+        /* ====================================================== */
+        /* 4. Игровой экран */
+        /* ====================================================== */
+
+        #game-screen {
+
+            position: relative;
+
+            width: 100vw;
+
+            height: 100vh;
+        }
+
+        /* Скрытие блока */
+        .hidden {
+
+            display: none;
+        }
+
+        /* ====================================================== */
+        /* 5. Игровой canvas */
+        /* ====================================================== */
+
+        #game-canvas {
+
+            width: 100%;
+
+            height: 100%;
+
+            background: #1a1a1a;
+        }
+
+        /* ====================================================== */
+        /* 6. Панель статистики */
+        /* ====================================================== */
+
+        #score-panel {
+
+            position: absolute;
+
+            top: 20px;
+
+            left: 20px;
+
+            z-index: 10;
+
+            font-size: 18px;
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-<!-- ================= SKY ================= -->
+    <!-- ====================================================== -->
+    <!-- 1. Главное меню -->
+    <!-- ====================================================== -->
 
-<div class="sky-gradient"></div>
+    <div id="menu-screen">
 
-<div class="sun"></div>
-
-<div class="cloud cloud1"></div>
-<div class="cloud cloud2"></div>
-<div class="cloud cloud3"></div>
-
-<div class="floating-particles"></div>
-
-<!-- ================= MENU ================= -->
-
-<div class="screen" id="menuScreen">
-
-    <div class="menu-wrapper">
-
-        <div class="logo-area">
-
-            <div class="logo-tower">
-
-                <div class="tower-block b1"></div>
-                <div class="tower-block b2"></div>
-                <div class="tower-block b3"></div>
-
-            </div>
-
-            <h1>
-                Tower Stack
-            </h1>
-
-            <p>
-                Build the tallest tower
-            </p>
-
+        <!-- Заголовок -->
+        <div class="game-title">
+            TOWER BLOCK
         </div>
 
-        <div class="menu-buttons">
-
-            <button
-                class="menu-button play-button"
-                onclick="showScreen('gameScreen')"
-            >
-
-                <div class="button-shine"></div>
-
-                <span class="button-icon">
-                    ▶
-                </span>
-
-                <span>
-                    Play
-                </span>
-
-            </button>
-
-            <button
-                class="menu-button"
-                onclick="showScreen('leaderboardScreen')"
-            >
-
-                <span class="button-icon">
-                    🏆
-                </span>
-
-                <span>
-                    Leaders
-                </span>
-
-            </button>
-
-            <button
-                class="menu-button"
-                onclick="showScreen('shopScreen')"
-            >
-
-                <span class="button-icon">
-                    🛍
-                </span>
-
-                <span>
-                    Shop
-                </span>
-
-            </button>
-
-        </div>
-
-        <div class="profile-cards">
-
-            <div class="profile-card">
-
-                <div class="profile-label">
-                    BEST
-                </div>
-
-                <div
-                    class="profile-value"
-                    id="menuBestScore"
-                >
-                    0
-                </div>
-
-            </div>
-
-            <div class="profile-card">
-
-                <div class="profile-label">
-                    COINS
-                </div>
-
-                <div class="profile-value">
-
-                    💰
-
-                    <span id="menuCoins">
-                        0
-                    </span>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- ================= GAME ================= -->
-
-<div class="screen hidden" id="gameScreen">
-
-    <div class="game-ui">
-
-        <button
-            class="circle-btn"
-            onclick="showScreen('menuScreen')"
-        >
-            ←
+        <!-- Кнопка игры -->
+        <button id="play-button">
+            Играть
         </button>
 
-        <div class="score-box">
+        <!-- Кнопка рейтинга -->
+        <button id="rating-button">
+            Рейтинг игроков
+        </button>
 
-            <div class="score-title">
-                SCORE
-            </div>
-
-            <div
-                class="score-value"
-                id="score"
-            >
-                0
-            </div>
-
-        </div>
-
-        <div class="coins-box">
-
-            💰
-
-            <span id="gameCoins">
-                0
-            </span>
-
-        </div>
+        <!-- Кнопка призов -->
+        <button id="prize-button">
+            Мои призы
+        </button>
 
     </div>
+
+    <!-- ====================================================== -->
+    <!-- 2. Игровой экран -->
+    <!-- ====================================================== -->
 
     <div
-        class="game-area"
-        id="gameArea"
+        id="game-screen"
+        class="hidden"
     >
 
-        <div class="ambient-light"></div>
+        <!-- Игровой canvas -->
+        <canvas id="game-canvas"></canvas>
 
-        <canvas id="gameCanvas"></canvas>
+        <!-- Панель очков -->
+        <div id="score-panel">
 
-        <div class="tap-anywhere">
-
-            TAP ANYWHERE
-
-        </div>
-
-    </div>
-
-    <div class="bottom-hint">
-
-        Perfect drops create combo bonuses ✨
-
-    </div>
-
-    <!-- GAME OVER -->
-
-    <div
-        class="game-over-overlay"
-        id="gameOverOverlay"
-    >
-
-        <div class="game-over-card">
-
-            <div class="game-over-light"></div>
-
-            <div class="game-over-title">
-                Tower Crashed
+            <div>
+                Этаж:
+                <span id="level">1</span>
             </div>
 
-            <div
-                class="game-over-score"
-                id="finalScore"
-            >
-                0
+            <div>
+                Очки:
+                <span id="score">0</span>
             </div>
 
-            <div class="earned-coins">
-
-                +
-                <span id="coinsEarned">
-                    0
-                </span>
-
-                💰
-
-            </div>
-
-            <div class="game-over-buttons">
-
-                <button
-                    class="primary-btn"
-                    id="restartButton"
-                >
-
-                    Play Again
-
-                </button>
-
-                <button
-                    class="secondary-btn"
-                    onclick="returnToMenu()"
-                >
-
-                    Main Menu
-
-                </button>
-
-            </div>
-
-            <div class="best-result">
-
-                BEST:
-                <span id="bestScore">
-                    0
-                </span>
-
+            <div>
+                Комбо:
+                <span id="combo">x1</span>
             </div>
 
         </div>
 
     </div>
 
-</div>
+    <!-- ====================================================== -->
+    <!-- 3. Подключение игровой логики -->
+    <!-- ====================================================== -->
 
-<!-- ================= LEADERBOARD ================= -->
-
-<div
-    class="screen hidden"
-    id="leaderboardScreen"
->
-
-    <div class="page-container">
-
-        <div class="top-bar">
-
-            <button
-                class="circle-btn"
-                onclick="showScreen('menuScreen')"
-            >
-                ←
-            </button>
-
-            <div class="page-title">
-                Leaders
-            </div>
-
-            <div style="width:50px"></div>
-
-        </div>
-
-        <div class="leaderboard-tabs">
-
-            <button
-                class="tab active"
-                onclick="switchTab('global')"
-            >
-                Global
-            </button>
-
-            <button
-                class="tab"
-                onclick="switchTab('friends')"
-            >
-                Friends
-            </button>
-
-        </div>
-
-        <div
-            class="leaderboard-list"
-            id="leaderboardList"
-        >
-        </div>
-
-        <div class="your-rank-card">
-
-            <div class="rank-left">
-
-                <div class="rank-number">
-
-                    #
-                    <span id="yourRank">
-                        15
-                    </span>
-
-                </div>
-
-                <div>
-
-                    <div class="rank-name">
-                        You
-                    </div>
-
-                    <div class="rank-coins">
-                        💰
-                        <span id="yourCoins">
-                            0
-                        </span>
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div
-                class="rank-score"
-                id="yourScore"
-            >
-                0
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- ================= SHOP ================= -->
-
-<div
-    class="screen hidden"
-    id="shopScreen"
->
-
-    <div class="page-container">
-
-        <div class="top-bar">
-
-            <button
-                class="circle-btn"
-                onclick="showScreen('menuScreen')"
-            >
-                ←
-            </button>
-
-            <div class="page-title">
-                Shop
-            </div>
-
-            <div class="coins-box">
-
-                💰
-
-                <span id="shopCoins">
-                    0
-                </span>
-
-            </div>
-
-        </div>
-
-        <div class="shop-tabs">
-
-            <button
-                class="shop-tab active"
-                onclick="switchCategory('blocks')"
-            >
-                Blocks
-            </button>
-
-            <button
-                class="shop-tab"
-                onclick="switchCategory('backgrounds')"
-            >
-                Backgrounds
-            </button>
-
-            <button
-                class="shop-tab"
-                onclick="switchCategory('effects')"
-            >
-                Effects
-            </button>
-
-        </div>
-
-        <div
-            class="shop-grid"
-            id="shopItems"
-        >
-        </div>
-
-    </div>
-
-</div>
-
-<!-- ================= PARTICLES ================= -->
-
-<div id="particlesContainer"></div>
-
-<!-- ================= SCRIPT ================= -->
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 
 </body>
+
 </html>
