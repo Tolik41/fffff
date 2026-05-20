@@ -1,227 +1,190 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Luggage Tower</title>
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-<style>
-body {
-    margin: 0;
-    background: #0f172a;
-    font-family: sans-serif;
-    color: white;
-    overflow: hidden;
-}
-#ui {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-}
-#items {
-    font-size: 14px;
-    opacity: 0.8;
-}
-canvas {
-    display: block;
-}
-#gameOver {
-    position: absolute;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: none;
-}
-button {
-    padding: 15px 30px;
-    font-size: 18px;
-    border-radius: 10px;
-    border: none;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Suitcase Tower</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #1a1a2e);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --button-color: var(--tg-theme-button-color, #4e54c8);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+        }
+        body { margin: 0; background: var(--bg-color); color: var(--text-color); font-family: sans-serif; overflow: hidden; height: 100vh; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
+        .menu { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 20px; pointer-events: auto; text-align: center; width: 80%; max-width: 300px; }
+        button { background: var(--button-color); color: var(--button-text-color); border: none; padding: 15px 30px; border-radius: 10px; font-size: 18px; margin: 10px; cursor: pointer; width: 100%; }
+        #hud { position: absolute; top: 20px; left: 20px; pointer-events: none; font-size: 20px; }
+        .hidden { display: none !important; }
+        h1 { margin-top: 0; }
+    </style>
 </head>
-
 <body>
 
-<div id="ui">
-    <div>Башня: <span id="score">0</span></div>
-    <div id="items">Предметы: 0</div>
+<div id="hud">Очки: <span id="score">0</span> | Монет: <span id="coins">0</span></div>
+
+<div id="ui" class="ui">
+    <!-- Главное меню -->
+    <div id="main-menu" class="menu">
+        <h1>Suitcase Tower</h1>
+        <button onclick="startGame()">Играть</button>
+        <button onclick="showShop()">Магазин</button>
+        <button onclick="showLeaderboard()">Топ игроков</button>
+    </div>
+
+    <!-- Магазин -->
+    <div id="shop-menu" class="menu hidden">
+        <h2>Магазин</h2>
+        <div id="shop-items"></div>
+        <button onclick="backToMenu()">Назад</button>
+    </div>
+
+    <!-- Лидерборд -->
+    <div id="leaderboard-menu" class="menu hidden">
+        <h2>Топ игроков</h2>
+        <div id="leaderboard-list"></div>
+        <button onclick="backToMenu()">Назад</button>
+    </div>
 </div>
 
 <canvas id="game"></canvas>
 
-<div id="gameOver">
-    <button onclick="restart()">Играть снова</button>
-</div>
-
 <script>
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+    const tg = window.Telegram.WebApp;
+    tg.ready(); tg.expand();
 
-// ====== ДАННЫЕ ======
-const ITEMS = [
-    {name: "Очки", emoji: "🕶️"},
-    {name: "Куртка", emoji: "🧥"},
-    {name: "Кроссовки", emoji: "👟"},
-    {name: "Рюкзак", emoji: "🎒"},
-    {name: "Часы", emoji: "⌚"},
-    {name: "Шапка", emoji: "🧢"}
-];
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    
+    // Состояние игры
+    let gameState = 'menu'; // menu, playing, shop, leaderboard
+    let score = 0;
+    let coins = parseInt(localStorage.getItem('coins')) || 0;
+    let bestScore = parseInt(localStorage.getItem('bestScore')) || 0;
+    let purchasedSkins = JSON.parse(localStorage.getItem('purchased')) || ['default'];
+    let activeSkin = localStorage.getItem('activeSkin') || 'default';
 
-// ====== НАСТРОЙКИ ======
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+    const skins = {
+        'default': { name: 'Стандарт', price: 0, color: '#3498db' },
+        'retro': { name: 'Ретро', price: 50, color: '#e67e22' },
+        'gold': { name: 'Золотой', price: 200, color: '#f1c40f' }
+    };
 
-let W, H;
+    let blocks = [];
+    let currentBlock = null;
+    let direction = 1;
+    const blockHeight = 40;
+    const blockWidth = 120;
 
-function resize() {
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = W;
-    canvas.height = H;
-}
-resize();
-window.onresize = resize;
-
-// ====== СОСТОЯНИЕ ======
-let blocks = [];
-let current = null;
-let dir = 1;
-let speed = 4;
-let score = 0;
-let gameOver = false;
-let collected = new Set();
-
-// ====== БЛОК ======
-class Block {
-    constructor(x, y, w, item) {
-        this.x = x;
-        this.y = y;
-        this.w = w;
-        this.h = 40;
-        this.item = item;
-        this.stopped = false;
+    function startGame() {
+        gameState = 'playing';
+        document.getElementById('ui').classList.add('hidden');
+        blocks = [{x: (canvas.width-blockWidth)/2, y: canvas.height - 100, w: blockWidth}];
+        score = 0;
+        document.getElementById('score').innerText = score;
+        spawnBlock();
+        requestAnimationFrame(loop);
     }
 
-    draw() {
-        ctx.fillStyle = "#38bdf8";
-        ctx.fillRect(this.x, this.y, this.w, this.h);
-
-        ctx.fillStyle = "white";
-        ctx.font = "22px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(this.item.emoji, this.x + this.w/2, this.y + 26);
-    }
-}
-
-// ====== СПАВН ======
-function spawn() {
-    let w = blocks.length ? blocks[blocks.length-1].w : 120;
-    let y = blocks.length ? blocks[blocks.length-1].y - 40 : H - 120;
-
-    current = new Block(W/2 - w/2, y, w, randomItem());
-    dir = 1;
-}
-
-function randomItem() {
-    return ITEMS[Math.floor(Math.random() * ITEMS.length)];
-}
-
-// ====== ЛОГИКА ======
-function place() {
-    if (!current || gameOver) return;
-
-    let last = blocks[blocks.length-1];
-
-    if (!last) {
-        blocks.push(current);
-        spawn();
-        return;
+    function spawnBlock() {
+        currentBlock = { x: 0, y: blocks[blocks.length-1].y - blockHeight, w: blocks[blocks.length-1].w, dir: 1 };
     }
 
-    let overlap =
-        Math.min(last.x + last.w, current.x + current.w) -
-        Math.max(last.x, current.x);
+    function loop() {
+        if (gameState !== 'playing') return;
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        
+        // Рисуем башню
+        blocks.forEach((b, i) => {
+            ctx.fillStyle = skins[activeSkin].color;
+            ctx.fillRect(b.x, b.y, b.w, blockHeight);
+        });
 
-    if (overlap <= 0) {
-        endGame();
-        return;
+        // Движение
+        if (currentBlock) {
+            currentBlock.x += 4 * direction;
+            if (currentBlock.x + currentBlock.w > canvas.width || currentBlock.x < 0) direction *= -1;
+            ctx.fillStyle = skins[activeSkin].color;
+            ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.w, blockHeight);
+        }
+        requestAnimationFrame(loop);
     }
 
-    current.x = Math.max(last.x, current.x);
-    current.w = overlap;
-
-    blocks.push(current);
-
-    collected.add(current.item.name);
-
-    score++;
-    updateUI();
-
-    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
-
-    setTimeout(spawn, 200);
-}
-
-function endGame() {
-    gameOver = true;
-    document.getElementById("gameOver").style.display = "block";
-
-    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
-}
-
-// ====== UI ======
-function updateUI() {
-    document.getElementById("score").innerText = score;
-    document.getElementById("items").innerText =
-        "Предметы: " + collected.size;
-}
-
-// ====== РЕНДЕР ======
-function loop() {
-    if (gameOver) return;
-
-    ctx.clearRect(0, 0, W, H);
-
-    blocks.forEach(b => b.draw());
-
-    if (current) {
-        current.x += speed * dir;
-
-        if (current.x <= 0 || current.x + current.w >= W) {
-            dir *= -1;
+    // Управление
+    window.addEventListener('click', () => {
+        if (gameState !== 'playing') return;
+        
+        const last = blocks[blocks.length-1];
+        const overlap = Math.min(last.x + last.w, currentBlock.x + currentBlock.w) - Math.max(last.x, currentBlock.x);
+        
+        if (overlap <= 0) {
+            endGame();
+            return;
         }
 
-        current.draw();
+        currentBlock.w = overlap;
+        currentBlock.x = Math.max(last.x, currentBlock.x);
+        blocks.push(currentBlock);
+        score++;
+        coins++;
+        document.getElementById('score').innerText = score;
+        document.getElementById('coins').innerText = coins;
+        localStorage.setItem('coins', coins);
+        
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        spawnBlock();
+    });
+
+    function endGame() {
+        gameState = 'menu';
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        document.getElementById('ui').classList.remove('hidden');
+        alert('Игра окончена! Счет: ' + score);
     }
 
-    requestAnimationFrame(loop);
-}
+    // Магазин
+    function showShop() {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('shop-menu').classList.remove('hidden');
+        const list = document.getElementById('shop-items');
+        list.innerHTML = '';
+        Object.keys(skins).forEach(id => {
+            const s = skins[id];
+            const btn = document.createElement('button');
+            const isOwned = purchasedSkins.includes(id);
+            btn.innerText = `${s.name} ${isOwned ? (activeSkin === id ? '(Выбрано)' : '(Куплено)') : '(' + s.price + ' монет)'}`;
+            btn.onclick = () => buySkin(id);
+            list.appendChild(btn);
+        });
+    }
 
-// ====== УПРАВЛЕНИЕ ======
-window.addEventListener("click", place);
+    function buySkin(id) {
+        if (purchasedSkins.includes(id)) {
+            activeSkin = id;
+            localStorage.setItem('activeSkin', id);
+        } else if (coins >= skins[id].price) {
+            coins -= skins[id].price;
+            purchasedSkins.push(id);
+            localStorage.setItem('coins', coins);
+            localStorage.setItem('purchased', JSON.stringify(purchasedSkins));
+        }
+        showShop();
+    }
 
-function restart() {
-    blocks = [];
-    score = 0;
-    collected.clear();
-    gameOver = false;
+    function backToMenu() {
+        document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden'));
+        document.getElementById('main-menu').classList.remove('hidden');
+    }
 
-    document.getElementById("gameOver").style.display = "none";
-
-    updateUI();
-    spawn();
-    loop();
-}
-
-// старт
-spawn();
-loop();
+    function showLeaderboard() {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('leaderboard-menu').classList.remove('hidden');
+        const list = document.getElementById('leaderboard-list');
+        list.innerHTML = `<div>${tg.initDataUnsafe?.user?.first_name || 'Вы'}: ${score}</div><div>Друг: 45</div><div>Игрок: 30</div>`;
+    }
 
 </script>
 </body>
