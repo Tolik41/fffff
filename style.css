@@ -1,125 +1,633 @@
-@import url("https://fonts.googleapis.com/css?family=Comfortaa");
+/* ===== RESET ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
 
-/* Общие стили для документа */
-html,
+/* ===== TELEGRAM THEME VARIABLES ===== */
+:root {
+    --tg-theme-bg-color: #ffffff;
+    --tg-theme-text-color: #000000;
+    --tg-theme-hint-color: #999999;
+    --tg-theme-button-color: #3390ec;
+    --tg-theme-button-text-color: #ffffff;
+    --tg-theme-secondary-bg-color: #f0f0f0;
+    --tg-theme-accent-color: #3390ec;
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --tg-theme-bg-color: #1c1c1d;
+        --tg-theme-text-color: #ffffff;
+        --tg-theme-hint-color: #7d7d7d;
+        --tg-theme-button-color: #5eabe1;
+        --tg-theme-secondary-bg-color: #2c2c2e;
+        --tg-theme-accent-color: #5eabe1;
+    }
+}
+
+/* ===== BODY ===== */
 body {
-  margin: 0;
-  overflow: hidden; /* Отключаем прокрутку страницы */
-  height: 100%;
-  width: 100%;
-  position: relative;
-  font-family: "Comfortaa", cursive; /* Шрифт для всего документа */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
 }
 
-#container {
-  width: 100%;
-  height: 100%; /* Контейнер занимает весь экран */
+/* ===== SCREEN MANAGEMENT ===== */
+.screen {
+    width: 100%;
+    max-width: 500px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-#container #score {
-  position: absolute;
-  top: 20px; /* Расположение счета в верхней части */
-  width: 100%;
-  text-align: center; /* Центрирование текста счета */
-  font-size: 10vh; /* Динамический размер шрифта для счета */
-  transition: transform 0.5s ease; /* Плавный переход для анимации */
-  color: #333344; /* Цвет текста счета */
-  transform: translatey(-200px) scale(1); /* Начальная позиция счета */
+.screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) scale(0.95);
 }
 
-#container #game {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0; /* Игра занимает весь экран внутри контейнера */
+/* ===== COMMON ELEMENTS ===== */
+.screen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: var(--tg-theme-secondary-bg-color);
+    border-radius: 0 0 20px 20px;
+    margin-bottom: 20px;
 }
 
-#container .game-over {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 85%; /* Зона для экрана завершения игры */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center; /* Центрирование контента экрана завершения игры */
+.screen-header h2 {
+    font-size: 1.5rem;
+    color: var(--tg-theme-text-color);
 }
 
-#container .game-over * {
-  transition: opacity 0.5s ease, transform 0.5s ease; /* Плавные переходы для элементов */
-  opacity: 0; /* Элементы скрыты по умолчанию */
-  transform: translatey(-50px); /* Начальное положение */
-  color: #333344; /* Цвет текста завершения игры */
+.back-btn {
+    background: none;
+    border: none;
+    color: var(--tg-theme-button-color);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
 }
 
-#container .game-over h2 {
-  margin: 0;
-  padding: 0;
-  font-size: 40px; /* Размер заголовка завершения игры */
+.back-btn:active {
+    background: var(--tg-theme-secondary-bg-color);
 }
 
-#container .game-ready {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%; /* Экран готовности игры занимает весь контейнер */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-around; /* Распределение элементов по вертикали */
+.header-coins {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    padding: 6px 15px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9rem;
 }
 
-#container .game-ready #start-button {
-  transition: opacity 0.5s ease, transform 0.5s ease; /* Плавные переходы для кнопки */
-  opacity: 0; /* Скрыта по умолчанию */
-  transform: translatey(-50px); /* Начальное положение кнопки */
-  border: 3px solid #333344; /* Стиль границы кнопки */
-  padding: 10px 20px; /* Внутренние отступы кнопки */
-  background-color: transparent; /* Прозрачный фон кнопки */
-  color: #333344; /* Цвет текста кнопки */
-  font-size: 30px; /* Размер текста кнопки */
+/* ===== MAIN MENU ===== */
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    height: 100vh;
+    gap: 30px;
 }
 
-#container #instructions {
-  position: absolute;
-  width: 100%;
-  top: 16vh;
-  left: 0;
-  text-align: center; /* Центрирование текста инструкций */
-  transition: opacity 0.5s ease, transform 0.5s ease; /* Плавные переходы */
-  opacity: 0; /* Инструкции скрыты по умолчанию */
+.game-logo {
+    text-align: center;
+    animation: fadeInDown 0.6s ease-out;
 }
 
-#container #instructions.hide {
-  opacity: 0 !important; /* Принудительное скрытие инструкций */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-#container.playing #score,
-#container.resetting #score {
-  transform: translatey(0px) scale(1); /* Счет возвращается в исходное положение */
+.logo-icon {
+    font-size: 5rem;
+    margin-bottom: 10px;
+    animation: bounce 2s infinite;
 }
 
-#container.playing #instructions {
-  opacity: 1; /* Инструкции отображаются */
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
-#container.ready .game-ready #start-button {
-  opacity: 1; /* Кнопка старт видима */
-  transform: translatey(0); /* Кнопка в исходном положении */
+.game-logo h1 {
+    font-size: 2.5rem;
+    color: var(--tg-theme-text-color);
+    margin-bottom: 10px;
 }
 
-#container.ended #score {
-  transform: translatey(6vh) scale(1.5); /* Увеличение счета при завершении игры */
+.tagline {
+    color: var(--tg-theme-hint-color);
+    font-size: 1rem;
 }
 
-#container.ended .game-over * {
-  opacity: 1; /* Элементы завершения игры видимы */
-  transform: translatey(0); /* Элементы в исходном положении */
+.menu-buttons {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
 }
 
-#container.ended .game-over p {
-  transition-delay: 0.3s; /* Задержка перед отображением текста завершения игры */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.menu-btn {
+    background: var(--tg-theme-secondary-bg-color);
+    border: none;
+    padding: 20px;
+    border-radius: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.menu-btn:active {
+    transform: scale(0.98);
+}
+
+.menu-btn.play-btn {
+    background: linear-gradient(135deg, var(--tg-theme-button-color) 0%, #5eabe1 100%);
+    color: var(--tg-theme-button-text-color);
+    box-shadow: 0 6px 20px rgba(51, 144, 236, 0.3);
+}
+
+.btn-icon {
+    font-size: 2rem;
+}
+
+.btn-text {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--tg-theme-text-color);
+}
+
+.play-btn .btn-text {
+    color: var(--tg-theme-button-text-color);
+}
+
+.user-stats {
+    width: 100%;
+    display: flex;
+    gap: 15px;
+    animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+.stat-item {
+    flex: 1;
+    background: var(--tg-theme-secondary-bg-color);
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.stat-label {
+    color: var(--tg-theme-hint-color);
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    color: var(--tg-theme-text-color);
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* ===== GAME SCREEN ===== */
+.game-container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+.header {
+    width: 100%;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--tg-theme-secondary-bg-color);
+    border-radius: 15px;
+    margin-bottom: 15px;
+    gap: 15px;
+}
+
+.score-display, .coins-display {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    min-width: 60px;
+    text-align: center;
+}
+
+.canvas-wrapper {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+#gameCanvas {
+    background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+    touch-action: none;
+}
+
+.controls {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.instructions {
+    text-align: center;
+    color: var(--tg-theme-hint-color);
+    font-size: 1rem;
+    padding: 10px;
+    background: var(--tg-theme-secondary-bg-color);
+    border-radius: 10px;
+}
+
+/* ===== GAME OVER OVERLAY ===== */
+.game-over-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.game-over-overlay.show {
+    display: flex;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.game-over-modal {
+    background: var(--tg-theme-bg-color);
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.game-over-modal h2 {
+    color: var(--tg-theme-text-color);
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.final-score {
+    color: var(--tg-theme-button-color);
+    font-size: 3rem;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.coins-earned {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #000;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.game-over-modal p {
+    color: var(--tg-theme-hint-color);
+    margin-bottom: 20px;
+    font-size: 1rem;
+}
+
+.game-over-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.restart-btn, .menu-return-btn {
+    border: none;
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+    transition: transform 0.1s;
+}
+
+.restart-btn {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    box-shadow: 0 4px 15px rgba(51, 144, 236, 0.3);
+}
+
+.menu-return-btn {
+    background: var(--tg-theme-secondary-bg-color);
+    color: var(--tg-theme-text-color);
+}
+
+.restart-btn:active, .menu-return-btn:active {
+    transform: scale(0.95);
+}
+
+.best-score {
+    background: var(--tg-theme-secondary-bg-color);
+    padding: 10px 15px;
+    border-radius: 10px;
+    color: var(--tg-theme-hint-color);
+    font-size: 0.9rem;
+}
+
+/* ===== LEADERBOARD ===== */
+.leaderboard-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding-bottom: 20px;
+}
+
+.leaderboard-tabs {
+    display: flex;
+    gap: 10px;
+    padding: 0 20px 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    background: var(--tg-theme-secondary-bg-color);
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--tg-theme-text-color);
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+}
+
+.leaderboard-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 20px;
+}
+
+.rank-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: var(--tg-theme-secondary-bg-color);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.rank-position {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--tg-theme-button-color);
+    min-width: 50px;
+}
+
+.rank-position.top-1 { color: #FFD700; }
+.rank-position.top-2 { color: #C0C0C0; }
+.rank-position.top-3 { color: #CD7F32; }
+
+.rank-info {
+    flex: 1;
+}
+
+.rank-name {
+    font-weight: 600;
+    color: var(--tg-theme-text-color);
+    margin-bottom: 3px;
+}
+
+.rank-coins {
+    font-size: 0.85rem;
+    color: var(--tg-theme-hint-color);
+}
+
+.rank-score {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--tg-theme-button-color);
+}
+
+.your-rank {
+    padding: 20px;
+    background: linear-gradient(to top, var(--tg-theme-bg-color) 0%, transparent 100%);
+}
+
+.your-rank .rank-item {
+    background: linear-gradient(135deg, var(--tg-theme-button-color) 0%, #5eabe1 100%);
+    border: 2px solid var(--tg-theme-button-color);
+}
+
+.your-rank .rank-name,
+.your-rank .rank-coins,
+.your-rank .rank-score,
+.your-rank .rank-position {
+    color: var(--tg-theme-button-text-color);
+}
+
+/* ===== SHOP ===== */
+.shop-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding-bottom: 20px;
+}
+
+.shop-categories {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 20px;
+    overflow-x: auto;
+}
+
+.category-btn {
+    background: var(--tg-theme-secondary-bg-color);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--tg-theme-text-color);
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.category-btn.active {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+}
+
+.shop-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    align-content: start;
+}
+
+.shop-item {
+    background: var(--tg-theme-secondary-bg-color);
+    border-radius: 15px;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.shop-item:active {
+    transform: scale(0.95);
+}
+
+.shop-item.owned {
+    border: 2px solid var(--tg-theme-button-color);
+}
+
+.item-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.item-name {
+    font-weight: 600;
+    color: var(--tg-theme-text-color);
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.item-price {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: inline-block;
+}
+
+.item-owned {
+    background: #4CAF50;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-height: 600px) {
+    .game-logo h1 {
+        font-size: 2rem;
+    }
+    
+    .logo-icon {
+        font-size: 3rem;
+    }
+    
+    .menu-buttons {
+        gap: 10px;
+    }
+    
+    .menu-btn {
+        padding: 15px;
+    }
+}
+
+@media (max-width: 375px) {
+    .shop-items {
+        grid-template-columns: 1fr;
+    }
 }
